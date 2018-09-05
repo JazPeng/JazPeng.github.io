@@ -1,0 +1,19 @@
+# Setup
+title:        Jasmine Pengelly
+tagline:      I am a Data Analyst/Junior Data Scientist based in London. I love R, Python,
+  and anything data-related. Experience working at Stack Overflow, DAZN and General Assembly.
+baseurl:      ""
+paginate:     1
+locale:       "en"
+
+# About/contact
+author:
+  name:       Jasmine Pengelly
+  url:        https://jazpeng.github.io./
+
+# Gems
+gems:
+  - jekyll-paginate
+
+#Others
+markdown: kramdown
