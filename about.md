@@ -5,7 +5,7 @@ permalink: /aboutme/
 ---
 
 # A little about me
-I am a Senior Data Analyst with over four years experience. I work with Microsoft Excel, SQL, Python and R and have experience working with visualisation tools such as Tableau.
+I am a Senior Data Analyst with three years' experience. I work with Microsoft Excel, SQL, Python and R and have experience working with visualisation tools such as Tableau.
 
 I started my career working at **Stack Overflow**, where I worked for 3.5 years. During this period I worked across three different roles in different departments, with each role more technical than the last. My role as Customer Success Representative required some basic data analysis and Excel skills, by the time I moved to Insights Consultant I was competent in data manipulation and visualisation in R and Python. I moved onto Data Analyst at **DAZN**, where I focused on product analysis, creating dashboards and some modelling.
 
