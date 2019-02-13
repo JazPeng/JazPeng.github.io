@@ -1,0 +1,17 @@
+current directory: /Users/jasminepengelly/Desktop/GitHub/JazPeng_blog/vendor/bundle/ruby/2.3.0/gems/http_parser.rb-0.6.0/ext/ruby_http_parser
+/System/Library/Frameworks/Ruby.framework/Versions/2.3/usr/bin/ruby -r ./siteconf20190213-4458-dh76c5.rb extconf.rb
+creating Makefile
+
+current directory: /Users/jasminepengelly/Desktop/GitHub/JazPeng_blog/vendor/bundle/ruby/2.3.0/gems/http_parser.rb-0.6.0/ext/ruby_http_parser
+make "DESTDIR=" clean
+
+current directory: /Users/jasminepengelly/Desktop/GitHub/JazPeng_blog/vendor/bundle/ruby/2.3.0/gems/http_parser.rb-0.6.0/ext/ruby_http_parser
+make "DESTDIR="
+compiling ruby_http_parser.c
+compiling ryah_http_parser.c
+linking shared-object ruby_http_parser.bundle
+ld: warning: text-based stub file /System/Library/Frameworks/Ruby.framework/Versions/2.3/usr/lib/libruby.2.3.0.tbd and library file /System/Library/Frameworks/Ruby.framework/Versions/2.3/usr/lib/libruby.2.3.0.dylib are out of sync. Falling back to library file for linking.
+
+current directory: /Users/jasminepengelly/Desktop/GitHub/JazPeng_blog/vendor/bundle/ruby/2.3.0/gems/http_parser.rb-0.6.0/ext/ruby_http_parser
+make "DESTDIR=" install
+/usr/bin/install -c -m 0755 ruby_http_parser.bundle ./.gem.20190213-4458-8zvvzz
