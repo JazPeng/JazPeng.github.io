@@ -1,7 +1,7 @@
 # Setup
 title:        Jasmine Pengelly
-tagline:      I am a Data Analyst/Junior Data Scientist based in London. I love R, Python,
-  and anything data-related. Experience working at Stack Overflow, DAZN and General Assembly.
+tagline:      <html>I am a Senior Data Analyst/Junior Data Scientist based in London. I love R, Python,
+  and anything data-related. I have previously worked at <b>Stack Overflow</b> and <b>DAZN</b>. I currently teach at <b>General Assembly</b> and work at <b>Expedia</b>.</html>
 baseurl:      ""
 paginate:     1
 locale:       "en"
