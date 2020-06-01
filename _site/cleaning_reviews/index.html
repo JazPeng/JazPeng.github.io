@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+  <head>
+  <meta charset="UTF-8">
+  <title>Jasmine Holdsworth</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#157878">
+  <link rel="stylesheet" href="/css/normalize.css">
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+  <link rel="stylesheet" href="/css/cayman.css">
+</head>
+
+  <body>
+    <section class="page-header">
+  <h1 class="project-name">Jasmine Holdsworth</h1>
+  <h2 class="project-tagline"><html>I am a Senior Data Analyst/Data Scientist based in London. I love R, Python, and anything data-related. I have previously worked at <b>Stack Overflow</b> and <b>DAZN</b>. I currently teach at <b>General Assembly</b> and work at <b>Expedia</b>.</html></h2>
+  <a href="/aboutme/" class="btn">About Me</a>
+  <a href="/" class="btn">Projects</a>
+  <a href="https://github.com/JazPeng" target="_blank" class="btn">GitHub</a>
+  <a href="https://twitter.com/StackJaz" target="_blank" class="btn">Twitter</a>
+  <a href="https://www.linkedin.com/in/jasmine-pengelly-a59b5552/" target="_blank" class="btn">LinkedIn</a>
+</section>
+
+
+    <section class="main-content">
+      
+      <h1 id="combining-and-cleaning-reviews-data"><center>Combining and cleaning reviews data</center></h1>
+<h2 id="r"><center>R</center></h2>
+
+<p>In my previous blog post, I talked about the project I was doing for Suckerpunch bar, using reviews and ratings to help influence business decisions. In the last post, I demonstrated how I scraped the reviews from four different platforms and created a separate data frame for each platform.</p>
+
+<p>This post focuses on the combining and cleaning of this data, as well as some initial insights into ratings over time.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">library</span><span class="p">(</span><span class="n">dplyr</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">readr</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">ggplot2</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ta</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"ta_reviews.csv"</span><span class="p">)</span><span class="w">
+</span><span class="n">fb</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"fb_reviews.csv"</span><span class="p">)</span><span class="w">
+</span><span class="n">dmn</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"dmn_reviews.csv"</span><span class="p">)</span><span class="w">
+</span><span class="n">ggl</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"google_reviews.csv"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="first-i-tidied-all-tables-by-ensuring-all-columns-are-in-the-right-order-all-column-headers-are-the-same-and-all-data-types-are-correct">First, I tidied all tables by ensuring all columns are in the right order, all column headers are the same and all data types are correct.</h3>
+
+<p>The TripAdvisor reviews had both headlines and review text, while the others have just review text. To uniformise the review text from all platforms, I will concatenate the text from the headline quote to the review text to create one ‘Review’ column.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">colnames</span><span class="p">(</span><span class="n">ta</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="s1">'X'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Date'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Rating'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Headline Quote'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Review_1.0'</span><span class="p">))</span><span class="w">
+
+</span><span class="n">ta</span><span class="o">$</span><span class="n">Review</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">paste</span><span class="p">(</span><span class="n">ta</span><span class="o">$</span><span class="s1">'Headline Quote'</span><span class="p">,</span><span class="w"> </span><span class="n">ta</span><span class="o">$</span><span class="n">Review_1.0</span><span class="p">,</span><span class="w"> </span><span class="n">sep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">" "</span><span class="p">)</span><span class="w">
+
+</span><span class="n">ta</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">select</span><span class="p">(</span><span class="n">ta</span><span class="p">,</span><span class="w"> </span><span class="s1">'Date'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Rating'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Review'</span><span class="p">)</span><span class="w">
+
+</span><span class="n">ta</span><span class="o">$</span><span class="n">Date</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">as.Date</span><span class="p">(</span><span class="n">ta</span><span class="o">$</span><span class="n">Date</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"%d/%m/%Y"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="facebook-reviews">Facebook reviews</h2>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">colnames</span><span class="p">(</span><span class="n">fb</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="s1">'X'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Date'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Rating'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Review'</span><span class="p">))</span><span class="w">
+
+</span><span class="n">fb</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">select</span><span class="p">(</span><span class="n">fb</span><span class="p">,</span><span class="w"> </span><span class="s1">'Date'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Rating'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Review'</span><span class="p">)</span><span class="w">
+
+</span><span class="n">fb</span><span class="o">$</span><span class="n">Date</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">as.Date</span><span class="p">(</span><span class="n">fb</span><span class="o">$</span><span class="n">Date</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="designmynight-reviews">DesignMyNight reviews</h2>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">colnames</span><span class="p">(</span><span class="n">dmn</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="s1">'X'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Date'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Rating'</span><span class="p">,</span><span class="w">  </span><span class="s1">'Review'</span><span class="p">))</span><span class="w">
+
+</span><span class="n">dmn</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">select</span><span class="p">(</span><span class="n">dmn</span><span class="p">,</span><span class="w"> </span><span class="s1">'Date'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Rating'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Review'</span><span class="p">)</span><span class="w">
+
+</span><span class="n">dmn</span><span class="o">$</span><span class="n">Date</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">as.Date</span><span class="p">(</span><span class="n">dmn</span><span class="o">$</span><span class="n">Date</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"%d/%m/%Y"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="google-reviews">Google reviews</h2>
+<p>Due to the messy process I went through to get the reviews from Google, a lot more manipulation and cleaning needed to be done.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">colnames</span><span class="p">(</span><span class="n">ggl</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="p">(</span><span class="nf">c</span><span class="p">(</span><span class="s1">'X'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Date_old'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Review'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Rating'</span><span class="p">))</span><span class="w">
+
+</span><span class="n">ggl</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">select</span><span class="p">(</span><span class="n">ggl</span><span class="p">,</span><span class="w"> </span><span class="s1">'Date_old'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Rating'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Review'</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p>The date formats that the reviews from Google needed changing to match that of the other reviews. I’ll create a reproducible function for this that takes a relative date (ie. “a month ago”) and produces a usable date format.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">library</span><span class="p">(</span><span class="n">lubridate</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">change_date_format</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="k">function</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="n">df2</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">df</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+    </span><span class="n">mutate</span><span class="p">(</span><span class="n">Date</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">case_when</span><span class="p">(</span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'a month ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">months</span><span class="p">(</span><span class="m">1</span><span class="p">),</span><span class="w">
+                  </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'5 months ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">months</span><span class="p">(</span><span class="m">5</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'4 months ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">months</span><span class="p">(</span><span class="m">4</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'8 months ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">months</span><span class="p">(</span><span class="m">8</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'2 months ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">months</span><span class="p">(</span><span class="m">2</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'11 months ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">months</span><span class="p">(</span><span class="m">11</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'a year ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">years</span><span class="p">(</span><span class="m">1</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'2 years ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">years</span><span class="p">(</span><span class="m">2</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'10 months ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">months</span><span class="p">(</span><span class="m">10</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'7 months ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">months</span><span class="p">(</span><span class="m">7</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'6 months ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">months</span><span class="p">(</span><span class="m">6</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'2 weeks ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">weeks</span><span class="p">(</span><span class="m">2</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'3 months ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">months</span><span class="p">(</span><span class="m">3</span><span class="p">),</span><span class="w">
+                 </span><span class="n">Date_old</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s1">'3 days ago'</span><span class="w"> </span><span class="o">~</span><span class="w"> </span><span class="n">Sys.Date</span><span class="p">()</span><span class="w"> </span><span class="o">%m-%</span><span class="w"> </span><span class="n">days</span><span class="p">(</span><span class="m">3</span><span class="p">))</span><span class="w">
+                        </span><span class="p">)</span><span class="w">
+    </span><span class="n">df2</span><span class="o">$</span><span class="n">Date</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">as.Date</span><span class="p">(</span><span class="n">df2</span><span class="o">$</span><span class="n">Date</span><span class="p">,</span><span class="w"> </span><span class="n">format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"%d/%m/%Y"</span><span class="p">)</span><span class="w">
+    </span><span class="n">final_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">select</span><span class="p">(</span><span class="n">df2</span><span class="p">,</span><span class="w"> </span><span class="s1">'Date'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Rating'</span><span class="p">,</span><span class="w"> </span><span class="s1">'Review'</span><span class="p">)</span><span class="w">
+    </span><span class="nf">return</span><span class="p">(</span><span class="n">final_df</span><span class="p">)</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ggl</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">change_date_format</span><span class="p">(</span><span class="n">ggl</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="i-combined-all-tables-into-one-to-create-a-master-review-data-frame">I combined all tables into one, to create a “master” review data frame</h2>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">reviews_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">bind_rows</span><span class="p">(</span><span class="n">Facebook</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fb</span><span class="p">,</span><span class="w"> </span><span class="n">TripAdvisor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ta</span><span class="p">,</span><span class="w"> </span><span class="n">DesignMyNight</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dmn</span><span class="p">,</span><span class="w"> </span><span class="n">Google</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ggl</span><span class="p">,</span><span class="w"> </span><span class="n">.id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Site"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">write.csv</span><span class="p">(</span><span class="n">reviews_df</span><span class="p">,</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"reviews_df.csv"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="net-promoter-score-analysis">Net Promoter Score analysis</h2>
+<p>Now I have all the data I need, what is the overall score?</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">nps</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">round</span><span class="p">(</span><span class="n">summarise</span><span class="p">(</span><span class="n">reviews_df</span><span class="p">,</span><span class="w"> </span><span class="n">NPS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mean</span><span class="p">(</span><span class="n">Rating</span><span class="p">)),</span><span class="m">1</span><span class="p">)</span><span class="w">
+</span><span class="n">nps</span><span class="w">
+</span></code></pre></div></div>
+
+<table>
+<tbody>
+	<tr><td>4.6</td></tr>
+</tbody>
+</table>
+<p>4.6 out of 5 - not bad!</p>
+
+<p>What about by month since the first review?</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">reviews_df</span><span class="o">$</span><span class="n">Month</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">format</span><span class="p">(</span><span class="n">as.Date</span><span class="p">(</span><span class="n">reviews_df</span><span class="o">$</span><span class="n">Date</span><span class="p">),</span><span class="w"> </span><span class="s2">"%y-%m"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ordered</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">reviews_df</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+    </span><span class="n">arrange</span><span class="p">(</span><span class="n">Month</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">distinct_months</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">unique</span><span class="p">(</span><span class="n">ordered</span><span class="o">$</span><span class="n">Month</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vector</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">distinct_months</span><span class="p">))</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">avg_month_function</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="k">function</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="n">reviews_df</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+    </span><span class="n">filter</span><span class="p">(</span><span class="n">Month</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">distinct_months</span><span class="p">[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">Month</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">distinct_months</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+    </span><span class="n">summarise</span><span class="p">(</span><span class="n">Avg_by_month</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mean</span><span class="p">(</span><span class="n">Rating</span><span class="p">))</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">avg_month_result</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">lapply</span><span class="p">(</span><span class="n">vector</span><span class="p">,</span><span class="w"> </span><span class="n">avg_month_function</span><span class="p">)</span><span class="w">
+</span><span class="n">avg_month_no_months</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">plyr</span><span class="o">::</span><span class="n">ldply</span><span class="p">(</span><span class="n">avg_month_result</span><span class="p">,</span><span class="w"> </span><span class="n">data.frame</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">data.frame</span><span class="p">(</span><span class="n">distinct_months</span><span class="p">)</span><span class="w">
+</span><span class="n">avg_months</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">bind_cols</span><span class="p">(</span><span class="n">df</span><span class="p">,</span><span class="w"> </span><span class="n">avg_month_no_months</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">reviews_plot</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">ggplot</span><span class="p">(</span><span class="n">avg_months</span><span class="p">,</span><span class="w"> </span><span class="n">aes</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">distinct_months</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Avg_by_month</span><span class="p">,</span><span class="w"> </span><span class="n">group</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">1</span><span class="p">))</span><span class="w"> </span><span class="o">+</span><span class="w">
+    </span><span class="n">geom_line</span><span class="p">(</span><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"#f5e2a8"</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w">
+    </span><span class="n">theme_minimal</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w">
+    </span><span class="n">labs</span><span class="p">(</span><span class="n">title</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Rating per month"</span><span class="p">,</span><span class="w">
+        </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Month"</span><span class="p">,</span><span class="w">
+        </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Rating"</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w">
+    </span><span class="n">theme</span><span class="p">(</span><span class="n">axis.title.x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">element_text</span><span class="p">(</span><span class="n">face</span><span class="o">=</span><span class="s2">"bold"</span><span class="p">,</span><span class="w"> </span><span class="n">size</span><span class="o">=</span><span class="m">10</span><span class="p">),</span><span class="w">
+           </span><span class="n">axis.text.x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">element_text</span><span class="p">(</span><span class="n">angle</span><span class="o">=</span><span class="m">90</span><span class="p">,</span><span class="w"> </span><span class="n">vjust</span><span class="o">=</span><span class="m">0.5</span><span class="p">))</span><span class="w">
+</span><span class="n">print</span><span class="p">(</span><span class="n">reviews_plot</span><span class="p">)</span><span class="w">
+</span><span class="n">ggsave</span><span class="p">(</span><span class="s2">"plt.png"</span><span class="p">,</span><span class="w"> </span><span class="n">width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">16</span><span class="p">,</span><span class="w"> </span><span class="n">height</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">9</span><span class="p">,</span><span class="w"> </span><span class="n">dpi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">120</span><span class="p">)</span><span class="w">
+
+</span></code></pre></div></div>
+
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/rating_per_month.png" alt="alt text" /></p>
+
+<p>This shows us the average rating every month since Suckerpunch opened. Things started with a relatively low score which climbed significantly over the first 8 months. The score has now plateaued at around 4.6.</p>
+
+<p>In the next blog post, I’ll look at the text in the reviews themselves and see what insights we can find.</p>
+
+
+      <footer class="site-footer">
+  <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.</span>
+</footer>
+
+
+    </section>
+
+  </body>
+</html>

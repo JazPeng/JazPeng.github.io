@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+  <head>
+  <meta charset="UTF-8">
+  <title>Jasmine Holdsworth</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#157878">
+  <link rel="stylesheet" href="/css/normalize.css">
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+  <link rel="stylesheet" href="/css/cayman.css">
+</head>
+
+  <body>
+    <section class="page-header">
+  <h1 class="project-name">Jasmine Holdsworth</h1>
+  <h2 class="project-tagline"><html>I am a Senior Data Analyst/Data Scientist based in London. I love R, Python, and anything data-related. I have previously worked at <b>Stack Overflow</b> and <b>DAZN</b>. I currently teach at <b>General Assembly</b> and work at <b>Expedia</b>.</html></h2>
+  <a href="/aboutme/" class="btn">About Me</a>
+  <a href="/" class="btn">Projects</a>
+  <a href="https://github.com/JazPeng" target="_blank" class="btn">GitHub</a>
+  <a href="https://twitter.com/StackJaz" target="_blank" class="btn">Twitter</a>
+  <a href="https://www.linkedin.com/in/jasmine-pengelly-a59b5552/" target="_blank" class="btn">LinkedIn</a>
+</section>
+
+
+    <section class="main-content">
+      
+      <h1 id="exploratory-data-analysis-on-cocktail-sales"><center>Exploratory data analysis on cocktail sales</center></h1>
+<h2 id="r"><center>R</center></h2>
+
+<p>The project developed from simply finding out the net promoter score to seeing what other data sets we had access to, and what we could find with them. Alongside the reviews data, Suckerpunch has a point-of-sales service that provides some basic data analysis and graphing on sales data. I wanted to take it a step further and see what else I could discover.</p>
+
+<p>I am also lucky enough that my partner is inherently detail-oriented, and kept the ingredients and costings of every cocktail on his menu. This allowed me to work out which cocktails yielded the highest amount of gross profit, rather than just focusing on the best-selling ones.</p>
+
+<pre><code class="language-{r}">library(readr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+</code></pre>
+
+<p>I had data from multiple sources. I have sales data in separate csvs broken down by month in one folder, which I will have to load in by bulk while adding the relevant month and year data.</p>
+
+<pre><code class="language-{r}">files &lt;- list.files(path = "/Users/jasminepengelly/Desktop/EARL/cocktail_data/", pattern = "*.csv", full.names = TRUE)
+
+cocktails &lt;- NULL
+
+for (file in files) {
+  x &lt;- read_csv(file, skip = 20)
+  month_year &lt;- sub(".*/Users/jasminepengelly/Desktop/EARL/cocktail_data/*(.*?) *.csv.*", "\\1", file)
+  split_month_year &lt;- str_split(month_year, "_")
+  x$month &lt;- unlist(split_month_year)[1]
+  x$year &lt;- unlist(split_month_year)[2]
+  cocktails &lt;- rbind(cocktails, x)
+}
+
+</code></pre>
+
+<p>I also had cocktail ingredients, cost and gross profit data in a separate csv which required cleaning.</p>
+
+<pre><code class="language-{r}">ingredients_sheet &lt;- read_csv("/Users/jasminepengelly/Desktop/EARL/ingredients.csv")
+</code></pre>
+
+<p>From these two data sources, I created three main data frames from which to work’ <strong>cocktail_sales</strong>, <strong>cocktail_ingredients</strong> and <strong>cocktail_costs</strong>.</p>
+
+<pre><code class="language-{r}">cocktail_sales &lt;- cocktails %&gt;%
+  select(month,
+         year,
+         cocktail = PRODUCT,
+         num_sold = AMOUNT,
+         price = PRICE,
+         total = TOTAL)
+
+cocktail_ingredients &lt;- ingredients_sheet %&gt;%
+  select(cocktail = Name,
+         measures = Measures,
+         amount = X4,
+         ingredients = Ingredients,
+         cost_ingredients = `Ingredient cost`,
+         cost_garnish = `Grnsh&amp; Accs cost`) %&gt;%
+  tidyr::drop_na()
+
+cocktail_costs &lt;- ingredients_sheet %&gt;%
+  select(era = Era,
+         cocktail = Name,
+         total_cost = `Total cost`,
+         gp_percent = `GP %`) %&gt;%
+  transform(as.numeric(gp_percent)) %&gt;%
+  unique()
+</code></pre>
+
+<p>I noticed that the names of the cocktails do not seem consistent throughout all the datasets. I extracted the unique cocktail names from every one of the data frames I created. I then performed anti-joins to see which names were left out - these would be the names that are different in each data frame.</p>
+
+<pre><code class="language-{r}">unique_in_cost &lt;- data_frame(unique(cocktail_costs$cocktail))
+colnames(unique_in_cost) &lt;- "cocktail"
+unique_in_sales &lt;- data_frame(unique(cocktail_sales$cocktail))
+colnames(unique_in_sales) &lt;- "cocktail"
+unique_in_ing &lt;- data_frame(unique(cocktail_ingredients$cocktail))
+colnames(unique_in_ing) &lt;- "cocktail"
+
+wrong_names &lt;- NULL
+
+wrong_names$cost_not_ing &lt;- anti_join(unique_in_cost, unique_in_ing, "cocktail")
+wrong_names$ing_not_cost &lt;- anti_join(unique_in_ing, unique_in_cost, "cocktail")
+# Ing and Sales
+wrong_names$ing_not_sales &lt;- anti_join(unique_in_ing, unique_in_cost, "cocktail")
+wrong_names$sales_not_ing &lt;- anti_join(unique_in_sales, unique_in_ing, "cocktail")
+#Cost and Sales
+wrong_names$cost_not_sales &lt;- anti_join(unique_in_cost, unique_in_sales, "cocktail")
+wrong_names$sales_not_cost &lt;- anti_join(unique_in_sales, unique_in_cost, "cocktail")
+</code></pre>
+
+<p>There were quite a few differences! Some of these required less attention. For example, <strong>wrong_names$sales_not_cost</strong> and <strong>wrong_names$sales_not_ing</strong> showed quite a few adhoc, off-menu orders, since these are the drinks that are entered directly into the till. There were a few mismatched names elsewhere though, for example “The Spring Punch” which should be “Spring Punch”. I made the changes below.</p>
+
+<pre><code class="language-{r}">cocktail_sales$cocktail[cocktail_sales$cocktail == "The Spring Punch"] &lt;- "Spring Punch"
+cocktail_ingredients$cocktail[cocktail_ingredients$cocktail == "L.I.I.T"] &lt;- "Long Island Ice Tea"
+cocktail_costs$cocktail[cocktail_costs$cocktail == "L.I.I.T"] &lt;- "Long Island Ice Tea"
+cocktail_sales$cocktail[cocktail_sales$cocktail == "Long Island"] &lt;- "Long Island Ice Tea"
+cocktail_sales$cocktail[cocktail_sales$cocktail == "Dark &amp; Stormy"] &lt;- "Dark and Stormy"
+cocktail_sales$cocktail[cocktail_sales$cocktail == "Dark 'n' Stormy"] &lt;- "Dark and Stormy"
+cocktail_costs$cocktail[cocktail_costs$cocktail == "Mezcal Margerita"] &lt;- "Mezcal Margarita"
+cocktail_ingredients$cocktail[cocktail_ingredients$cocktail == "Mezcal Margerita"] &lt;- "Mezcal Margarita"
+cocktail_sales$cocktail[cocktail_sales$cocktail == "Blood &amp; Sand"] &lt;- "Blood and Sand"
+cocktail_sales$cocktail[cocktail_sales$cocktail == "Skull Puncher Skull"] &lt;- "Skull Puncher"
+cocktail_sales$cocktail[cocktail_sales$cocktail == "Miami Vice Skull"] &lt;- "Miami Vice"
+cocktail_sales$cocktail[cocktail_sales$cocktail == "Rum Swizzle"] &lt;- "Swizzle"
+cocktail_sales$cocktail[cocktail_sales$cocktail == "Rum Swizzle"] &lt;- "Swizzle"
+cocktail_sales$cocktail[cocktail_sales$cocktail == "Shot 1"] &lt;- "Russian Roulette"
+</code></pre>
+
+<h2 id="gross-profit">Gross profit</h2>
+<p>With the majority of the tidying done, I created a separate data frame that looked at the best and worst performing drinks in terms of gross profits. The below are the top 10 drinks I would recommend to keep on the next iteration of the menu.</p>
+
+<pre><code class="language-{r}">total_gp &lt;- merge(cocktail_sales, cocktail_costs, on = "name") %&gt;%
+  select(cocktail, price, num_sold, gp_percent, total_revenue = total, gp_percent) %&gt;%
+  mutate(total_gp = gp_percent*total_revenue) %&gt;%
+  group_by(cocktail) %&gt;%
+  summarise(num_sold = sum(num_sold),
+            total_gp = sum(total_gp)) %&gt;%
+  arrange(desc(total_gp))
+
+head(total_gp, 10) %&gt;%
+  ggplot(aes(reorder(cocktail, -total_gp), y = total_gp)) +
+  geom_bar(stat = "identity",  fill = "#f5e2a8") +
+  labs(title = "Profit generated (by cocktail)",
+       y = "Gross profit (£)",
+       x = "Cocktail name") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face="bold", size=10),
+           axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  scale_y_continuous(label = scales::comma)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/top_profit.png" alt="Top profit cocktails" /></p>
+
+<p>“Espresso Martinis” have generated the most profit fo Suckerpunch - over £30,000 worth! It has outperformed the next best performing drink “Spring Punch” by over a third. These are the drinks that I recommend stay on the next iteration of the menu.</p>
+
+<p>The drinks that yielded the least profit, and which should therefore potentially be removed:</p>
+<pre><code class="language-{r}">tail(total_gp, 5) %&gt;%
+  ggplot(aes(reorder(cocktail, total_gp), y = total_gp)) +
+  geom_bar(stat = "identity",  fill = "#f5e2a8") +
+  labs(title = "Profit generated (by cocktail)",
+       y = "Gross profit (£)",
+       x = "Cocktail name") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face="bold", size=10),
+           axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  scale_y_continuous(label = scales::comma)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/bottom_profit.png" alt="Lowest profit cocktails" /></p>
+
+<p>The “Midori Sour” has generated the least profit overall, followed by the charmingly named “Blood and Sand”. These are the drinks I would recommend being replaced on the next iteration of the menu.</p>
+
+<h2 id="base-alcohol-popularity">Base alcohol popularity</h2>
+<p>It would be interesting to analyse the popularity of the base alcohol in cocktails over time. To do this, I will have to distill every cocktail down to its (main) base alcohol and plot the data as a time series to see if there have been any changes over time.</p>
+
+<p>Luckily for me, the ingredients data is set out so that the first element is usually the alcohol. This makes extracting the base alcohol for every cocktail much easier.</p>
+
+<pre><code class="language-{r}">cocktail &lt;- NULL
+alcohol &lt;- NULL
+
+for (each in unique(cocktail_ingredients$cocktail)) {
+  x &lt;- cocktail_ingredients %&gt;%
+    filter(cocktail == each)
+  cocktail &lt;- c(cocktail, unlist(x[1, c(1,4)])[1])
+  alcohol &lt;- c(alcohol, unlist(x[1, c(1,4)])[2])
+}
+
+cocktail &lt;- data_frame(cocktail)
+alcohol &lt;- data_frame(alcohol)
+
+base_alcohol &lt;- bind_cols(cocktail, alcohol)
+</code></pre>
+
+<p>For the cocktails where the first elements are not the base alcohol, some manual manipulation is required. I’ll also remove “Long Island Ice Tea” since it has so many contributing alcohols.</p>
+
+<pre><code class="language-{r}">base_alcohol$alcohol[base_alcohol$alcohol == "Raspberry Puree"] &lt;- "Prosecco"
+base_alcohol$alcohol[base_alcohol$alcohol == "MSP Premix"] &lt;- "Prosecco"
+base_alcohol$alcohol[base_alcohol$alcohol == "Mezcal"] &lt;- "Tequila"
+base_alcohol$alcohol[base_alcohol$alcohol == "Calvados"] &lt;- "Gin"
+base_alcohol$alcohol[base_alcohol$alcohol == "Campari"] &lt;- "Prosecco"
+
+base_alcohol &lt;- base_alcohol %&gt;%
+  filter(cocktail != "Long Island Ice Tea",
+         !alcohol %in% c("Midori"))
+</code></pre>
+
+<p>Some of the alcohols have different names (“Gin” and “Sloe Gin”) so I’ll do some manipulation to group them together better.</p>
+
+<pre><code class="language-{r}">replace_alcohol &lt;- function(a, df) {
+  n &lt;- grep(a, df$alcohol)
+  df$alcohol &lt;- replace(df$alcohol, n, a)
+  return(df$alcohol)
+}
+
+base_alcohol$alcohol[base_alcohol$cocktail == "Spring Punch"] &lt;- base_alcohol %&gt;%
+  filter(cocktail == "Spring Punch") %&gt;%
+  select(alcohol) %&gt;%
+  str_replace("Prosecco", "Vodka")
+
+
+base_alcohol$alcohol &lt;- replace_alcohol("Rum", base_alcohol)
+base_alcohol$alcohol &lt;- replace_alcohol("Gin", base_alcohol)
+
+base_alcohol$alcohol[base_alcohol$alcohol == "Zubowka"] &lt;- "Vodka"
+base_alcohol$alcohol[base_alcohol$alcohol == "Havana 7yo"] &lt;- "Rum"
+</code></pre>
+
+<p>I can now merge this table with the sales data and plot the data over a times series.</p>
+
+<pre><code class="language-{r}">alcohol_trends &lt;- merge(cocktail_sales, base_alcohol, on = cocktail) %&gt;%
+  mutate(date = paste("1", month, year)) %&gt;%
+  select(date, alcohol, num_sold) %&gt;%
+  group_by(date, alcohol) %&gt;%
+  summarise(total_sold = sum(num_sold)) %&gt;%
+  filter(date != "2018-08-01") %&gt;%
+  arrange(date, alcohol)
+
+alcohol_trends$date &lt;- as.Date(alcohol_trends$date, format = "%d %B %Y")
+
+alcohol_trends %&gt;%
+  ggplot(aes(date, total_sold, color = alcohol)) +
+  geom_line() +
+  labs(title = "Base alcohol consumption in cocktails",
+       x = "Date",
+       y = "# of cocktails sold",
+       color = "Base alcohol") +
+  theme_minimal()
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/base_alcohol_num.png" alt="Base alcohol by volume" /></p>
+
+<p>Here we can see that Vodka is by far the most popular base alcohol with little competition. Rum experienced a surge in popularity after Q3 of 2017 (probably due to a menu change around that time). Gin’s popularity has remained constant. It’s worth noting that the decline in sales towards the end of the graph is representative of me taking data halfway through a complete month.</p>
+
+<p>It would also be useful to see these base alcohols as a percentage of total alcohol sales over time.</p>
+
+<pre><code class="language-{r}">alcohol_trends %&gt;%
+  group_by(date) %&gt;%
+  summarise(total_month = sum(total_sold)) %&gt;%
+  merge(alcohol_trends, on = date) %&gt;%
+  mutate(percent = round((total_sold / total_month)*100, 2)) %&gt;%
+  ggplot(aes(date, percent, color = alcohol)) +
+  geom_line() +
+  labs(title = "Base alcohol consumption in cocktails",
+     x = "Date",
+     y = "% of total cocktails sold",
+     color = "Base alcohol") +
+  theme_minimal()
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/base_alcohol_percent.png" alt="Base alcohol by percentage" /></p>
+
+<p>Looking at the data as a percentage of sales in each month gives a much clearer indication of the trends. While we can see that Vodka is still the most popular, we can also see that it’s popularity is waning over time. Gin peaked, dropped and now is at a more-or-less constant second-most popular position. Rum’s increase is still visible, but not more so is Bourbon’s drop in popularity (again, around the time of the menu change).</p>
+
+<h1 id="cocktail-types">Cocktail types</h1>
+<p>The menu is broken into cocktail types, which are loosely based around eras, so it would be interesting to see how these perform against each other.</p>
+
+<pre><code class="language-{r}">type &lt;- merge(cocktail_costs, cocktail_sales, on = "cocktail") %&gt;%
+   mutate(date = paste("1", month, year)) %&gt;%
+  select(date, era, num_sold, total_gp = total) %&gt;%
+  group_by(date, era) %&gt;%
+  summarise(num_sold = sum(num_sold),
+            total = sum(total_gp))
+
+
+type$date &lt;- as.Date(type$date, format = "%d %B %Y")
+
+type_percent &lt;- type %&gt;%
+  group_by(date) %&gt;%
+  summarise(total_month = sum(num_sold)) %&gt;%
+  merge(type, on = date) %&gt;%
+  mutate(percent = round((num_sold / total_month)*100, 2))
+
+type_percent %&gt;%
+  ggplot(aes(date, percent, color = era)) +
+  geom_line() +
+  labs(title = "Cocktail sales by type",
+       x = "Date",
+       y = "# of cocktails sold",
+       color = "Type") +
+  theme_minimal()
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/sales_by_type.png" alt="Sales by type" /></p>
+
+<p>“Modern Favourites” has consistently been the favourite, although the popularity has steadily decreased over time. “Sucker Punch Favourites” was once the second-most popular type but now finds itself least popular, along with “Prohibition”. The success story here is “Fizzy”, which is now almost-tied for most popular cocktail type. From this, we can determine that “Fizzy” cocktails are good to focus on but some new additions are needed for “Sucker Punch Favourites” and “Modern Favourites”.</p>
+
+<pre><code class="language-{r}">type %&gt;%
+  select(era, total) %&gt;%
+  group_by(era) %&gt;%
+  summarise(total = sum(total)) %&gt;%
+  ggplot(aes(reorder(era, -total), total)) +
+  geom_bar(stat = "identity",  fill = "#f5e2a8") +
+  labs(title = "Profit generated (by type)",
+     y = "Gross profit (£)",
+     x = "Cocktail name") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face="bold", size=10),
+           axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  scale_y_continuous(label = scales::comma)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/profit_by_type.png" alt="Profit by type" /></p>
+
+<p>Unsurprisingly, “Modern Favourites” has generated the most profit since it has been the favoured type for so long. There is opportunity to develop the “Prohibition” and “Cheeky Indulgence” types to maximise profits.</p>
+
+<h2 id="sharers-and-shots">Sharers and shots</h2>
+<p>In addition to cocktails, the menu also has sharers and shots.</p>
+
+<pre><code class="language-{r}">sharers &lt;- c("Skull Puncher", "Miami Vice", "Swizzle", "Spring Punch Skull", "Cosmo skull")
+shots &lt;- c("Russian Roulette", "Pick N Mix", "Sangrita City")
+</code></pre>
+
+<h3 id="best-selling-skulls">Best selling Skulls</h3>
+<pre><code class="language-{r}">skulls &lt;- cocktail_sales %&gt;%
+  filter(cocktail %in% sharers) %&gt;%
+  select(cocktail, num_sold, total) %&gt;%
+  group_by(cocktail) %&gt;%
+  summarise(num_sold = sum(num_sold),
+            total = sum(total))
+
+skulls %&gt;%
+  ggplot(aes(reorder(cocktail, -num_sold), num_sold)) +
+  geom_bar(stat = "identity", fill = "#f5e2a8") +
+  labs(title = "Sales of cocktail skulls",
+     y = "# sold",
+     x = "Skull name") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face="bold", size=10),
+           axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  scale_y_continuous(label = scales::comma)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/sales_skulls.png" alt="Best selling skulls" /></p>
+
+<h3 id="most-profitable-skulls">Most profitable Skulls</h3>
+<pre><code class="language-{r}">skulls %&gt;%
+  ggplot(aes(reorder(cocktail, -total), total)) +
+  geom_bar(stat = "identity", fill = "#f5e2a8") +
+  labs(title = "Revenue (by Skulls)",
+     y = "Revenue (£)",
+     x = "Skull name") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face="bold", size=10),
+           axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  scale_y_continuous(label = scales::comma)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/rev_by_skulls.png" alt="Highest profit skulls" /></p>
+
+<p>The “Skull Puncher” is the most profitable and best-selling cocktail Skull by far.</p>
+
+<h3 id="best-selling-shots">Best selling shots</h3>
+<pre><code class="language-{r}">shots &lt;- cocktail_sales %&gt;%
+  filter(cocktail %in% shots) %&gt;%
+  select(cocktail, num_sold, total) %&gt;%
+  group_by(cocktail) %&gt;%
+  summarise(num_sold = sum(num_sold),
+            total = sum(total))
+
+shots %&gt;%
+  ggplot(aes(reorder(cocktail, -num_sold), num_sold)) +
+  geom_bar(stat = "identity", fill = "#f5e2a8") +
+  labs(title = "Sales of shots",
+     y = "# sold",
+     x = "Shot names") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face="bold", size=10),
+           axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  scale_y_continuous(label = scales::comma)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/sales_shots.png" alt="Best selling shots" /></p>
+
+<h3 id="most-profitable-shots">Most profitable shots</h3>
+<pre><code class="language-{r}">shots %&gt;%
+  ggplot(aes(reorder(cocktail, -total), total)) +
+  geom_bar(stat = "identity", fill = "#f5e2a8") +
+  labs(title = "Revenue (by shots)",
+     y = "Revenue (£)",
+     x = "Shot names") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face="bold", size=10),
+           axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  scale_y_continuous(label = scales::comma)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/rev_by_shots.png" alt="Highest profit shots" /></p>
+
+<p>The “Russian Roulette” shots are the best performing in both sales and profit.</p>
+
+<h2 id="off-menu-drinks">Off-menu drinks</h2>
+<p>It will also be interesting to see the best-selling off-menu orders, to see if there are any additions it would be worth adding.</p>
+
+<pre><code class="language-{r}">off_menu &lt;- anti_join(cocktail_sales, cocktail_costs, by = "cocktail") %&gt;%
+  select(cocktail, num_sold, total) %&gt;%
+  group_by(cocktail) %&gt;%
+  summarise(num_sold = sum(num_sold),
+           total = sum(total)) %&gt;%
+  arrange(desc(num_sold))
+
+remove &lt;- c("Open Drink 2", "Open drink 3", "Open drink 1", "Open drink 4")
+
+off_menu &lt;- off_menu %&gt;%
+  filter(!cocktail %in% remove) %&gt;%
+  anti_join(skulls, on = cocktail) %&gt;%
+  anti_join(shots, on = cocktail)
+</code></pre>
+
+<h3 id="most-popular-off-menu-drinks">Most popular off-menu drinks</h3>
+<pre><code class="language-{r}">off_menu %&gt;%
+  head(20) %&gt;%
+  ggplot(aes(reorder(cocktail, -num_sold), num_sold)) +
+  geom_bar(stat = "identity",  fill = "#f5e2a8") +
+  labs(title = "Most popular off-menu drinks",
+     y = "# ordered (all time)",
+     x = "Drink name") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face="bold", size=10),
+           axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  scale_y_continuous(label = scales::comma)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/off_menu_pop.png" alt="Most popular off-menu" /></p>
+
+<h3 id="off-menu-drinks-that-have-yielded-the-most-revenue">Off-menu drinks that have yielded the most revenue</h3>
+<pre><code class="language-{r}">off_menu %&gt;%
+  head(20) %&gt;%
+  ggplot(aes(reorder(cocktail, -total), total)) +
+  geom_bar(stat = "identity",  fill = "#f5e2a8") +
+  labs(title = "Off-menu drinks that have yielded the most revenue",
+     y = "Revenue (£)",
+     x = "Drink name") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face="bold", size=10),
+           axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  scale_y_continuous(label = scales::comma)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/off_menu_rev.png" alt="Most revenue off menu" /></p>
+
+<p>While the “Mojito” and the “STEVE” (a beer) have sold almost the same amount, the “Mojito” has yielded a lot more revenue. The “Summer Of Love” and the “Cosmopolitan” would also be good additions to the menu.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+<p>This is the final blog post pertaining to the “Putting the R in Bar” project. I presented my findings at the EARL conference on 12th September 2018. In future blog posts, I will show how I put all of these findings into a shiny app with an interface easy enough for a non-technical user.</p>
+
+
+      <footer class="site-footer">
+  <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.</span>
+</footer>
+
+
+    </section>
+
+  </body>
+</html>

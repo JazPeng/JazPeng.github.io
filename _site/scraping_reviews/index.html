@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+  <head>
+  <meta charset="UTF-8">
+  <title>Jasmine Holdsworth</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#157878">
+  <link rel="stylesheet" href="/css/normalize.css">
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+  <link rel="stylesheet" href="/css/cayman.css">
+</head>
+
+  <body>
+    <section class="page-header">
+  <h1 class="project-name">Jasmine Holdsworth</h1>
+  <h2 class="project-tagline"><html>I am a Senior Data Analyst/Data Scientist based in London. I love R, Python, and anything data-related. I have previously worked at <b>Stack Overflow</b> and <b>DAZN</b>. I currently teach at <b>General Assembly</b> and work at <b>Expedia</b>.</html></h2>
+  <a href="/aboutme/" class="btn">About Me</a>
+  <a href="/" class="btn">Projects</a>
+  <a href="https://github.com/JazPeng" target="_blank" class="btn">GitHub</a>
+  <a href="https://twitter.com/StackJaz" target="_blank" class="btn">Twitter</a>
+  <a href="https://www.linkedin.com/in/jasmine-pengelly-a59b5552/" target="_blank" class="btn">LinkedIn</a>
+</section>
+
+
+    <section class="main-content">
+      
+      <h1 id="scraping-reviews-from-google-tripadvisor-designmynight-and-facebook"><center>Scraping reviews from Google, Tripadvisor, DesignMyNight and Facebook</center></h1>
+<h2 id="r"><center>R</center></h2>
+
+<p>One evening, my partner and I were having a conversation about how difficult it was for him to get an all-round view of how his business, a cocktail bar called Suckerpunch, was doing in terms of ratings. There are four main sites on which people tend to leave his business reviews; Google, Facebook, DesignMyNight and TripAdvisor. While he can access all four of these platforms individually, there was no concise way to consolidate all the reviews and get a net promoter score.</p>
+
+<p>I decided to make a project out of doing this for him. The idea began with just getting the average score across all platforms and developed into how we could use the text in those reviews to improve the customer experience and identify pain points. We also talked about doing some time-series analysis to if there were any business developments (such as a refurb or a management change) had any significant effect. The final product will be a shiny app that provides all of this data in an easy-to-interpret interface.</p>
+
+<p>But first, I had to get the data I needed from each source.</p>
+
+<h2 id="tripadvisor">TripAdvisor</h2>
+<p>TripAdvisor does have an API, but it was not appropriate for my use case. After contacting them to make sure I was not violating their terms of service, I used web scraping to get the data I needed.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">library</span><span class="p">(</span><span class="n">xml2</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">rvest</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">dplyr</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">httr</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">readr</span><span class="p">)</span><span class="w">
+</span><span class="n">library</span><span class="p">(</span><span class="n">stringr</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p>I wanted to automate the scraping as much as possible by creating a function that iterates through every relevant URL and returns the relevant data. First, I had to identify the convention of the URLs and then create a list of them.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">tripadvisor_urls</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">()</span><span class="w">
+
+</span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">seq</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="w"> </span><span class="m">80</span><span class="p">,</span><span class="w"> </span><span class="m">10</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="n">url</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">paste</span><span class="p">(</span><span class="s1">'https://www.tripadvisor.co.uk/Attraction_Review-g186306-d9756771-Reviews-or'</span><span class="p">,</span><span class="n">n</span><span class="p">,</span><span class="w">
+           </span><span class="s1">'-Suckerpunch_St_Albans-St_Albans_Hertfordshire_England.html'</span><span class="p">,</span><span class="w"> </span><span class="n">sep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">""</span><span class="p">)</span><span class="w">
+    </span><span class="n">tripadvisor_urls</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="n">tripadvisor_urls</span><span class="p">,</span><span class="w"> </span><span class="n">url</span><span class="p">)</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Next, I created a function that can easily be reused to get the same data for different establishments - perhaps one day I may want to do similar analysis for competitors, or for his future businesses.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">get_one_page</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="k">function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="n">reviews</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">read_html</span><span class="p">()</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_nodes</span><span class="p">(</span><span class="s2">"#REVIEWS .innerBubble"</span><span class="p">)</span><span class="w">
+
+    </span><span class="n">id</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">reviews</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_node</span><span class="p">(</span><span class="s2">".quote a"</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_attr</span><span class="p">(</span><span class="s2">"id"</span><span class="p">)</span><span class="w">
+
+    </span><span class="n">headline_quote</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">reviews</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_node</span><span class="p">(</span><span class="s2">".quote span"</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_text</span><span class="p">()</span><span class="w">
+
+    </span><span class="n">rating</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">reviews</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+        </span><span class="n">html_nodes</span><span class="p">(</span><span class="s2">".ratingInfo"</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+        </span><span class="nf">as.character</span><span class="p">()</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+        </span><span class="n">substr</span><span class="p">(</span><span class="m">63</span><span class="p">,</span><span class="w"> </span><span class="m">63</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+        </span><span class="nf">as.numeric</span><span class="p">()</span><span class="w">
+
+    </span><span class="n">date</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">reviews</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_node</span><span class="p">(</span><span class="s2">".rating .ratingDate"</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_attr</span><span class="p">(</span><span class="s2">"title"</span><span class="p">)</span><span class="w">
+
+    </span><span class="n">data.frame</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">as.Date</span><span class="p">(</span><span class="n">date</span><span class="p">,</span><span class="w"> </span><span class="s1">'%d %B %Y'</span><span class="p">),</span><span class="w"> </span><span class="n">rating</span><span class="p">,</span><span class="w"> </span><span class="n">headline_quote</span><span class="p">)</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">all_pages</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">lapply</span><span class="p">(</span><span class="n">tripadvisor_urls</span><span class="p">,</span><span class="w"> </span><span class="n">get_one_page</span><span class="p">)</span><span class="w">
+</span><span class="n">tripadvisor_data</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">plyr</span><span class="o">::</span><span class="n">ldply</span><span class="p">(</span><span class="n">all_pages</span><span class="p">,</span><span class="w"> </span><span class="n">data.frame</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p>While the above method got me a lot of the content that I needed, using it to scrape the actual content of the reviews only yields truncated text. To get the full text, I had to create a separate function that loops through each individual review’s URL, using the id column of the data frame I created.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">full_review_urls</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">()</span><span class="w">
+
+</span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">id</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">tripadvisor_data</span><span class="o">$</span><span class="n">id</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="n">url_id</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">substr</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="m">3</span><span class="p">,</span><span class="n">nchar</span><span class="p">(</span><span class="n">id</span><span class="p">))</span><span class="w">
+    </span><span class="n">url</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">paste</span><span class="p">(</span><span class="s1">'https://www.tripadvisor.co.uk/ShowUserReviews-g186306-d9756771-r'</span><span class="p">,</span><span class="w">
+                 </span><span class="n">url_id</span><span class="p">,</span><span class="s1">'-Suckerpunch_St_Albans-St_Albans_Hertfordshire_England.html'</span><span class="p">,</span><span class="w"> </span><span class="n">sep</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">""</span><span class="p">)</span><span class="w">
+    </span><span class="n">full_review_urls</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="n">full_review_urls</span><span class="p">,</span><span class="w"> </span><span class="n">url</span><span class="p">)</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">get_full_review</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="k">function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="n">reviews</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">read_html</span><span class="p">()</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_node</span><span class="p">(</span><span class="s2">"#REVIEWS .innerBubble"</span><span class="p">)</span><span class="w">
+
+    </span><span class="n">id</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">reviews</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_node</span><span class="p">(</span><span class="s2">".quote a"</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_attr</span><span class="p">(</span><span class="s2">"id"</span><span class="p">)</span><span class="w">
+
+    </span><span class="n">review</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">reviews</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_node</span><span class="p">(</span><span class="s2">".entry .partial_entry"</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+      </span><span class="n">html_text</span><span class="p">()</span><span class="w">
+
+    </span><span class="n">data.frame</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">review</span><span class="p">)</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">full_reviews_dfs</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">lapply</span><span class="p">(</span><span class="n">full_review_urls</span><span class="p">,</span><span class="w"> </span><span class="n">get_full_review</span><span class="p">)</span><span class="w">
+</span><span class="n">full_reviews__final</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">plyr</span><span class="o">::</span><span class="n">ldply</span><span class="p">(</span><span class="n">full_reviews_dfs</span><span class="p">,</span><span class="w"> </span><span class="n">data.frame</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p>I now have two data frames - one with my full review text and one with my metadata. I made sure that there was an id column in both to act as a unique identifier so I could merge them into one.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">tripadvisor</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">left_join</span><span class="p">(</span><span class="n">tripadvisor_data</span><span class="p">,</span><span class="w"> </span><span class="n">full_reviews__final</span><span class="p">,</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">'id'</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">write.csv</span><span class="p">(</span><span class="n">tripadvisor</span><span class="p">,</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"ta_reviews.csv"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="facebook">Facebook</h2>
+<p>Facebook was by far the easiest and simplest platform I used. I simply set up my page access tokens <a href="https://developers.facebook.com/tools/explorer/">here</a> and created a URL from their URL builder. With just a few lines of code I got everything I required.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">access_token</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="o">****</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fb_url</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">paste0</span><span class="p">(</span><span class="s2">"https://graph.facebook.com/v3.0/me?fields=ratings.limit(20000)%7Bcreated_time%2Crating%2Creview_text%2Creviewer%7D&amp;access_token="</span><span class="p">,</span><span class="n">access_token</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">facebook_function</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="k">function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="n">returned</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">GET</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w">
+    </span><span class="n">c</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">content</span><span class="p">(</span><span class="n">returned</span><span class="p">)</span><span class="o">$</span><span class="n">ratings</span><span class="w">
+    </span><span class="n">new</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">data.frame</span><span class="p">()</span><span class="w">
+        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">c</span><span class="p">[[</span><span class="m">1</span><span class="p">]])</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">data.frame</span><span class="p">(</span><span class="n">as.list</span><span class="p">(</span><span class="n">unlist</span><span class="p">(</span><span class="n">i</span><span class="p">)))</span><span class="w">
+            </span><span class="n">new</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">bind_rows</span><span class="p">(</span><span class="n">new</span><span class="p">,</span><span class="w"> </span><span class="n">df</span><span class="p">)</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+    </span><span class="nf">return</span><span class="p">(</span><span class="n">new</span><span class="p">)</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">fb_result</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">facebook_function</span><span class="p">(</span><span class="n">fb_url</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">write.csv</span><span class="p">(</span><span class="n">fb_result</span><span class="p">,</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"fb_reviews.csv"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="designmynight">DesignMyNight</h2>
+<p>DesignMyNight had no terms of service to abide by, or API to access. Web scraping the public “Suckerpunch” DesignMyNight page was not an option as there were only a limited number of reviews showing at one time. To access every review, I had to web scrape from the admin page which required credentials.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">url</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="s2">"https://www.designmynight.com/dmn-admin/page/5718e8fe7fb8d76363cea4ce/edit"</span><span class="w">
+</span><span class="n">pgsession</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">html_session</span><span class="p">(</span><span class="n">url</span><span class="p">)</span><span class="w">
+</span><span class="n">pgform</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">html_form</span><span class="p">(</span><span class="n">pgsession</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">filled_form</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">set_values</span><span class="p">(</span><span class="n">pgform</span><span class="p">[[</span><span class="m">1</span><span class="p">]],</span><span class="w">
+                          </span><span class="s2">"email"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">****</span><span class="p">,</span><span class="w">
+                          </span><span class="s2">"password"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">****</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">filled_form</span><span class="o">$</span><span class="n">url</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="s2">""</span><span class="w">
+</span><span class="n">submit_form</span><span class="p">(</span><span class="n">pgsession</span><span class="p">,</span><span class="w"> </span><span class="n">filled_form</span><span class="p">)</span><span class="w">
+</span><span class="n">review_page</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">jump_to</span><span class="p">(</span><span class="n">pgsession</span><span class="p">,</span><span class="w"> </span><span class="s2">"https://www.designmynight.com/dmn-admin/page/5718e8fe7fb8d76363cea4ce/edit"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">reviews</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">read_html</span><span class="p">(</span><span class="n">review_page</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+    </span><span class="n">html_nodes</span><span class="p">(</span><span class="s2">".review-details"</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+    </span><span class="n">html_text</span><span class="p">()</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">read_html</span><span class="p">(</span><span class="n">review_page</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+    </span><span class="n">html_nodes</span><span class="p">(</span><span class="s2">".review-details"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Once I had the reviews, I needed to manipulate the text to get the appropriate data in the right columns.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">date_split</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">str_split</span><span class="p">(</span><span class="n">reviews</span><span class="p">,</span><span class="w"> </span><span class="s2">"Username"</span><span class="p">,</span><span class="w"> </span><span class="n">simplify</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">TRUE</span><span class="p">)</span><span class="w">
+</span><span class="n">date</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">str_replace</span><span class="p">(</span><span class="n">date_split</span><span class="p">[,</span><span class="m">1</span><span class="p">],</span><span class="w"> </span><span class="s2">"Date"</span><span class="p">,</span><span class="w"> </span><span class="s2">""</span><span class="p">)</span><span class="w">
+
+</span><span class="n">name_split</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">str_split</span><span class="p">(</span><span class="n">date_split</span><span class="p">[,</span><span class="m">2</span><span class="p">],</span><span class="w"> </span><span class="s2">"Rating"</span><span class="p">,</span><span class="w"> </span><span class="n">simplify</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">TRUE</span><span class="p">)</span><span class="w">
+</span><span class="n">name</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">name_split</span><span class="p">[,</span><span class="m">1</span><span class="p">]</span><span class="w">
+
+</span><span class="n">rating_split</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">str_split</span><span class="p">(</span><span class="n">name_split</span><span class="p">[,</span><span class="m">2</span><span class="p">],</span><span class="w"> </span><span class="s2">"Review"</span><span class="p">,</span><span class="w"> </span><span class="n">simplify</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">TRUE</span><span class="p">)</span><span class="w">
+</span><span class="n">rating</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">rating_split</span><span class="p">[,</span><span class="m">1</span><span class="p">]</span><span class="w">
+
+</span><span class="n">review</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">str_replace</span><span class="p">(</span><span class="n">rating_split</span><span class="p">[,</span><span class="m">2</span><span class="p">],</span><span class="w"> </span><span class="s2">"Venue replyAdd reply"</span><span class="p">,</span><span class="w"> </span><span class="s2">""</span><span class="p">)</span><span class="w">
+
+</span><span class="n">reviews_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">data.frame</span><span class="p">(</span><span class="n">date</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">rating</span><span class="p">,</span><span class="w"> </span><span class="n">review</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">write.csv</span><span class="p">(</span><span class="n">reviews_df</span><span class="p">,</span><span class="w"> </span><span class="n">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"dmn_reviews.csv"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="google-reviews">Google Reviews</h2>
+<p>This was by far the most time consuming and inefficient method I used. While Google do have a business API, they refused myself and my partners’ application for access without explanation. Only five reviews are available without paying a fee, so I had to resort to the what felt like quite a primitive method; I copied and pasted all the reviews for the business into a txt file and performed regular expressions to get the data I needed.</p>
+
+<p>While this method is not scalable, it did give me a chance to practice string manipulation in R which I actually found to be relatively simple and straightforward.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">google</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">read_delim</span><span class="p">(</span><span class="s2">"google_reviews.txt"</span><span class="p">,</span><span class="w"> </span><span class="n">delim</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"/n"</span><span class="p">,</span><span class="w"> </span><span class="n">col_names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">FALSE</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="separate-into-5-star-4-star-3-star-2-star-and-1-star-dataframes">Separate into 5 star, 4 star, 3 star, 2 star and 1 star dataframes</h2>
+<p>The copying and pasting didn’t actually carry over the rating number, so I had to separate the ratings into the appropriate ratings sections. I found that these sections were easily separated at the pattern “ star”.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">filter</span><span class="p">(</span><span class="n">google</span><span class="p">,</span><span class="w"> </span><span class="n">grepl</span><span class="p">(</span><span class="s2">" star"</span><span class="p">,</span><span class="w"> </span><span class="n">X</span><span class="m">1</span><span class="p">))</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">star_rows</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">grep</span><span class="p">(</span><span class="s2">" star"</span><span class="p">,</span><span class="w"> </span><span class="n">google</span><span class="o">$</span><span class="n">X</span><span class="m">1</span><span class="p">)</span><span class="w">
+</span><span class="n">star_rows</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">google_5</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">google</span><span class="p">[</span><span class="m">2</span><span class="o">:</span><span class="m">234</span><span class="p">,</span><span class="w"> </span><span class="s2">"X1"</span><span class="p">]</span><span class="w">
+</span><span class="n">google_4</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">google</span><span class="p">[</span><span class="m">236</span><span class="o">:</span><span class="m">370</span><span class="p">,</span><span class="w"> </span><span class="s2">"X1"</span><span class="p">]</span><span class="w">
+</span><span class="n">google_3</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">google</span><span class="p">[</span><span class="m">372</span><span class="o">:</span><span class="m">394</span><span class="p">,</span><span class="w"> </span><span class="s2">"X1"</span><span class="p">]</span><span class="w">
+</span><span class="n">google_1</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">google</span><span class="p">[</span><span class="m">396</span><span class="o">:</span><span class="n">nrow</span><span class="p">(</span><span class="n">google</span><span class="p">),</span><span class="w"> </span><span class="s2">"X1"</span><span class="p">]</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="here-i-tidied-the-data-by-separating-out-each-individual-review-dropped-all-the-rows-i-didnt-need-transposed-the-reviews-and-added-a-column-with-the-appropriate-rating">Here I tidied the data by separating out each individual review, dropped all the rows I didn’t need, transposed the reviews and added a column with the appropriate rating.</h3>
+<h3 id="five-star">Five star</h3>
+<p>To make the process as painless as possible, I defined numerous functions that could be resused with the other star ratings. This function first locates all indices of the rows that contain “Like”, which appear to signal the split between each unique reviews. It then uses these locations to split the data frames.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sep_on_likes</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="k">function</span><span class="p">(</span><span class="n">google_star</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="n">review_list</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">list</span><span class="p">()</span><span class="w">
+
+    </span><span class="n">pattern</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s2">"Like"</span><span class="p">,</span><span class="w"> </span><span class="s2">"1$"</span><span class="p">)</span><span class="w">
+    </span><span class="n">likes</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">grep</span><span class="p">(</span><span class="n">paste</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span><span class="n">collapse</span><span class="o">=</span><span class="s2">"|"</span><span class="p">),</span><span class="w"> </span><span class="n">google_star</span><span class="o">$</span><span class="n">X</span><span class="m">1</span><span class="p">)</span><span class="w">
+
+
+    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">likes</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">likes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">likes</span><span class="p">[</span><span class="m">1</span><span class="p">])</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">review_list</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="n">review_list</span><span class="p">,</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="n">google_star</span><span class="p">[</span><span class="m">1</span><span class="o">:</span><span class="n">likes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="m">-1</span><span class="p">,</span><span class="w"> </span><span class="s2">"X1"</span><span class="p">]))</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+        </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">likes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">likes</span><span class="p">[</span><span class="nf">length</span><span class="p">(</span><span class="n">likes</span><span class="p">)])</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">review_list</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="n">review_list</span><span class="p">,</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="n">google_star</span><span class="p">[</span><span class="n">likes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">:</span><span class="n">nrow</span><span class="p">(</span><span class="n">google_star</span><span class="p">),</span><span class="w"> </span><span class="s2">"X1"</span><span class="p">]))</span><span class="w">
+            </span><span class="p">}</span><span class="w">
+        </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">review_list</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="n">review_list</span><span class="p">,</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="n">google_star</span><span class="p">[</span><span class="n">likes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">:</span><span class="n">likes</span><span class="p">[</span><span class="n">i</span><span class="m">+1</span><span class="p">],</span><span class="w"> </span><span class="s2">"X1"</span><span class="p">]))</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+    </span><span class="nf">return</span><span class="p">(</span><span class="n">review_list</span><span class="p">)</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sep_on_likes_5</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">sep_on_likes</span><span class="p">(</span><span class="n">google_5</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p>When the individual reviews were in data frame format, I saw that the last element in the list has a bunch of reviews that could not be “liked” (potentially because that are ratings without review text). I separated them out from the rest and work with the “likeable” ones for now.</p>
+
+<p>For the “likeable” ones, I saw that second, fifth and sixth element are always the information that I need (name, date and review text). I created a function that turns those into data frames where each of these elements are columns.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">loop_5</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">sep_on_likes_5</span><span class="p">[</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">sep_on_likes_5</span><span class="p">)</span><span class="m">-1</span><span class="p">]</span><span class="w">
+</span><span class="n">no_review_5</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">sep_on_likes_5</span><span class="p">[</span><span class="nf">length</span><span class="p">(</span><span class="n">sep_on_likes_5</span><span class="p">)]</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">make_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="k">function</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="n">df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="kc">NULL</span><span class="w">
+
+    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">each</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">loop</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">unlist</span><span class="p">(</span><span class="n">loop_5</span><span class="p">[</span><span class="n">each</span><span class="p">])[</span><span class="m">1</span><span class="p">]</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s2">"Like"</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">unlist</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="n">unique</span><span class="p">(</span><span class="n">unlist</span><span class="p">(</span><span class="n">loop</span><span class="p">[</span><span class="n">each</span><span class="p">]))[</span><span class="nf">c</span><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="m">3</span><span class="p">,</span><span class="m">4</span><span class="p">)])</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+        </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">unlist</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="n">unique</span><span class="p">(</span><span class="n">unlist</span><span class="p">(</span><span class="n">loop</span><span class="p">[</span><span class="n">each</span><span class="p">]))[</span><span class="nf">c</span><span class="p">(</span><span class="m">2</span><span class="p">,</span><span class="m">4</span><span class="p">,</span><span class="m">5</span><span class="p">)])</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+    </span><span class="n">df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">rbind</span><span class="p">(</span><span class="n">df</span><span class="p">,</span><span class="w"> </span><span class="n">data.frame</span><span class="p">(</span><span class="n">unlist</span><span class="p">[[</span><span class="m">1</span><span class="p">]][[</span><span class="m">1</span><span class="p">]],</span><span class="w"> </span><span class="n">unlist</span><span class="p">[[</span><span class="m">1</span><span class="p">]][[</span><span class="m">2</span><span class="p">]],</span><span class="w"> </span><span class="n">unlist</span><span class="p">[[</span><span class="m">1</span><span class="p">]][[</span><span class="m">3</span><span class="p">]]))</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+    </span><span class="n">colnames</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span><span class="w"> </span><span class="s2">"date"</span><span class="p">,</span><span class="w"> </span><span class="s2">"review"</span><span class="p">)</span><span class="w">
+    </span><span class="nf">return</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">five_stars_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">make_df</span><span class="p">(</span><span class="n">loop_5</span><span class="p">)</span><span class="w">
+</span><span class="n">five_stars_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">five_stars_df</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+    </span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="m">1</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Then I worked on the “unlikeable” reviews that have no text. Rather than being able to be separated by “Like”, I saw that the rows that contain “* ago” were the best ones to use to separate the text. I defined a function that puts all those reviews into a data frame and then appended them to the original five_stars_df.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">make_df_no_text</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="k">function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="n">df_final</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="kc">NULL</span><span class="w">
+    </span><span class="n">ux</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">unlist</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w">
+    </span><span class="n">idx</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">cumsum</span><span class="p">(</span><span class="n">grepl</span><span class="p">(</span><span class="s2">" ago"</span><span class="p">,</span><span class="w"> </span><span class="n">ux</span><span class="p">))</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">grepl</span><span class="p">(</span><span class="s2">" ago"</span><span class="p">,</span><span class="w"> </span><span class="n">ux</span><span class="p">)</span><span class="w">
+    </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">split</span><span class="p">(</span><span class="n">ux</span><span class="p">,</span><span class="w"> </span><span class="n">idx</span><span class="p">)</span><span class="w">
+    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">x</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">unlist</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">])[</span><span class="nf">c</span><span class="p">(</span><span class="m">2</span><span class="p">,</span><span class="nf">length</span><span class="p">(</span><span class="n">unlist</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">])))]</span><span class="w">
+            </span><span class="n">df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">t</span><span class="p">(</span><span class="n">data.frame</span><span class="p">(</span><span class="n">y</span><span class="p">))</span><span class="w">
+            </span><span class="n">rownames</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">()</span><span class="w">
+            </span><span class="n">colnames</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span><span class="w"> </span><span class="s2">"date"</span><span class="p">)</span><span class="w">
+            </span><span class="n">df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">as.data.frame</span><span class="p">(</span><span class="n">df</span><span class="p">)</span><span class="w">
+            </span><span class="n">df</span><span class="o">$</span><span class="n">review</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="s2">""</span><span class="w">
+            </span><span class="n">df_final</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">rbind</span><span class="p">(</span><span class="n">df_final</span><span class="p">,</span><span class="w"> </span><span class="n">df</span><span class="p">)</span><span class="w">
+
+            </span><span class="p">}</span><span class="w">
+    </span><span class="nf">return</span><span class="p">(</span><span class="n">as.data.frame</span><span class="p">(</span><span class="n">df_final</span><span class="p">))</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">no_text_5</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">make_df_no_text</span><span class="p">(</span><span class="n">no_review_5</span><span class="p">)</span><span class="w">
+</span><span class="n">five_stars_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">rbind</span><span class="p">(</span><span class="n">five_stars_df</span><span class="p">,</span><span class="w"> </span><span class="n">no_text_5</span><span class="p">)</span><span class="w">
+</span><span class="n">five_stars_df</span><span class="o">$</span><span class="n">rating</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="m">5</span><span class="w">
+</span></code></pre></div></div>
+
+<h4 id="four-star">Four star</h4>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sep_on_likes_4</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">sep_on_likes</span><span class="p">(</span><span class="n">google_4</span><span class="p">)</span><span class="w">
+</span><span class="n">loop_4</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">sep_on_likes_4</span><span class="p">[</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">sep_on_likes_4</span><span class="p">)</span><span class="m">-1</span><span class="p">]</span><span class="w">
+</span><span class="n">no_review_4</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">sep_on_likes_4</span><span class="p">[</span><span class="nf">length</span><span class="p">(</span><span class="n">sep_on_likes_4</span><span class="p">)]</span><span class="w">
+</span><span class="n">four_stars_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">make_df</span><span class="p">(</span><span class="n">loop_4</span><span class="p">)</span><span class="w">
+</span><span class="n">no_text_4</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">make_df_no_text</span><span class="p">(</span><span class="n">no_review_4</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p>The below is one row that slipped through the function, so it requires some manual wrangling.</p>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">make_df</span><span class="p">(</span><span class="n">loop_4</span><span class="p">[</span><span class="m">10</span><span class="p">])</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">a</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">t</span><span class="p">(</span><span class="n">data.frame</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="n">unique</span><span class="p">(</span><span class="n">unlist</span><span class="p">(</span><span class="n">loop_4</span><span class="p">[</span><span class="m">10</span><span class="p">]))[</span><span class="nf">c</span><span class="p">(</span><span class="m">2</span><span class="p">,</span><span class="m">4</span><span class="p">,</span><span class="m">5</span><span class="p">)])))</span><span class="w">
+</span><span class="n">rownames</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">()</span><span class="w">
+</span><span class="n">colnames</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="nf">c</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span><span class="w"> </span><span class="s2">"date"</span><span class="p">,</span><span class="w"> </span><span class="s2">"review"</span><span class="p">)</span><span class="w">
+</span><span class="n">a</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">four_stars_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">four_stars_df</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+    </span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s2">"Like"</span><span class="p">)</span><span class="w"> </span><span class="o">%&gt;%</span><span class="w">
+    </span><span class="n">rbind</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="w">
+</span><span class="n">four_stars_df</span><span class="o">$</span><span class="n">rating</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="m">4</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="three-star">Three star</h3>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sep_on_likes_3</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">sep_on_likes</span><span class="p">(</span><span class="n">google_3</span><span class="p">)</span><span class="w">
+</span><span class="n">loop_3</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">sep_on_likes_3</span><span class="p">[</span><span class="m">1</span><span class="o">:</span><span class="nf">length</span><span class="p">(</span><span class="n">sep_on_likes_3</span><span class="p">)</span><span class="m">-1</span><span class="p">]</span><span class="w">
+</span><span class="n">no_review_3</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">sep_on_likes_3</span><span class="p">[</span><span class="nf">length</span><span class="p">(</span><span class="n">sep_on_likes_3</span><span class="p">)]</span><span class="w">
+</span><span class="n">three_stars_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">make_df</span><span class="p">(</span><span class="n">loop_3</span><span class="p">)</span><span class="w">
+</span><span class="n">no_text_3</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">make_df_no_text</span><span class="p">(</span><span class="n">no_review_3</span><span class="p">)</span><span class="w">
+</span><span class="n">three_stars_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">rbind</span><span class="p">(</span><span class="n">three_stars_df</span><span class="p">,</span><span class="w"> </span><span class="n">no_text_3</span><span class="p">)</span><span class="w">
+</span><span class="n">three_stars_df</span><span class="o">$</span><span class="n">rating</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="m">3</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="one-star">One star</h3>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sep_on_likes_1</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">sep_on_likes</span><span class="p">(</span><span class="n">google_1</span><span class="p">)</span><span class="w">
+</span><span class="n">one_star_df</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">make_df</span><span class="p">(</span><span class="n">sep_on_likes_1</span><span class="p">[</span><span class="m">1</span><span class="p">])</span><span class="w">
+</span><span class="n">one_star_df</span><span class="o">$</span><span class="n">rating</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="m">1</span><span class="w">
+</span></code></pre></div></div>
+
+<h3 id="make-a-master-data-frame-to-extract-as-a-csv-for-further-analysis">Make a master data frame to extract as a CSV for further analysis</h3>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">all_reviews</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">rbind</span><span class="p">(</span><span class="n">five_stars_df</span><span class="p">,</span><span class="w"> </span><span class="n">four_stars_df</span><span class="p">,</span><span class="w"> </span><span class="n">three_stars_df</span><span class="p">,</span><span class="w"> </span><span class="n">one_star_df</span><span class="p">)</span><span class="w">
+</span><span class="n">all_reviews</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-R highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">write.csv</span><span class="p">(</span><span class="n">all_reviews</span><span class="p">,</span><span class="w"> </span><span class="s2">"google_reviews.csv"</span><span class="p">)</span><span class="w">
+</span></code></pre></div></div>
+
+<p>The next step is combining all the above data frames into one, cleaning the data and getting some initial insights out of them. See my next post to see how I did it.</p>
+
+
+      <footer class="site-footer">
+  <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.</span>
+</footer>
+
+
+    </section>
+
+  </body>
+</html>

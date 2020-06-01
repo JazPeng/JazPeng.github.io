@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+  <head>
+  <meta charset="UTF-8">
+  <title>Jasmine Holdsworth</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#157878">
+  <link rel="stylesheet" href="/css/normalize.css">
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+  <link rel="stylesheet" href="/css/cayman.css">
+</head>
+
+  <body>
+    <section class="page-header">
+  <h1 class="project-name">Jasmine Holdsworth</h1>
+  <h2 class="project-tagline"><html>I am a Senior Data Analyst/Data Scientist based in London. I love R, Python, and anything data-related. I have previously worked at <b>Stack Overflow</b> and <b>DAZN</b>. I currently teach at <b>General Assembly</b> and work at <b>Expedia</b>.</html></h2>
+  <a href="/aboutme/" class="btn">About Me</a>
+  <a href="/" class="btn">Projects</a>
+  <a href="https://github.com/JazPeng" target="_blank" class="btn">GitHub</a>
+  <a href="https://twitter.com/StackJaz" target="_blank" class="btn">Twitter</a>
+  <a href="https://www.linkedin.com/in/jasmine-pengelly-a59b5552/" target="_blank" class="btn">LinkedIn</a>
+</section>
+
+
+    <section class="main-content">
+      
+      <h1 id="creating-wordclouds-from-reviews"><center>Creating wordclouds from reviews</center></h1>
+<h2 id="r"><center>R</center></h2>
+
+<p>In the last post, I created a master data frame from the scraped reviews and did some initial ratings analysis.</p>
+
+<p>In this post, I’ll be focusing on the text itself to see what Suckerpunch do well and what could be improved.</p>
+
+<pre><code class="language-{r}">library(tm)
+library(dplyr)
+library(wordcloud)
+</code></pre>
+
+<p>I imported the reviews that I used and dropped the reviews with no text.</p>
+
+<pre><code class="language-{r}">reviews &lt;- read.csv("/Users/jasminepengelly/Desktop/EARL/reviews_cleaned_df.csv", stringsAsFactors = FALSE)
+reviews &lt;- select(reviews, -X)
+non_null_reviews &lt;- filter(reviews, Review != "NA")
+</code></pre>
+
+<p>I then created a “good” and “bad” corpus - the good containing reviews with a rating of 4 plus, and bad containing reviews with a rating of maximum 2. I then manipulated them into a VCorpus object.</p>
+<pre><code class="language-{r}">good_reviews &lt;- non_null_reviews %&gt;%
+    filter(Rating &gt;= 4) %&gt;%
+    select(Id, Review) %&gt;%
+    rename(doc_id = Id, text = Review) %&gt;%
+  DataframeSource() %&gt;%
+  VCorpus()
+
+bad_reviews &lt;- non_null_reviews %&gt;%
+    filter(Rating &lt;= 2) %&gt;%
+    select(Id, Review) %&gt;%
+    rename(doc_id = Id, text = Review) %&gt;%
+  DataframeSource() %&gt;%
+  VCorpus()
+</code></pre>
+
+<p>I defined the stopwords, using the English dictionary and including “cocktail” and “bar”. I added more words to this generating the word cloud to make sure I only kept the ones that gave insight.</p>
+
+<p>Once this was done, I defined a function to preprocess the text.</p>
+
+<pre><code class="language-{r}">stopword_additions &lt;- c("cocktails", "cocktail", "sucker", "suckerpunch", "bar", "will", "back", "really", "definitely", "always", "made", "can", "even", "just", "little", "book", "look", "get", "sure", "went", "like", "cant", "one", "couldnt", "also", "bit", "going", "way", "much", "didnt", "got", "sat", "dont", "though", "want", "come", "pre", "make", "see", "ive", "although", "however", "now", "say", "still", "try", "100", "wont", "two")
+
+stopwords &lt;- c(stopword_additions, stopwords("en"))
+
+preprocess &lt;- function(x) {
+  x &lt;- tm_map(x, content_transformer(tolower)) %&gt;%
+  tm_map(removePunctuation) %&gt;%
+  tm_map(stripWhitespace) %&gt;%
+  tm_map(removeWords, stopwords) %&gt;%
+  return()
+}
+
+good_corpus &lt;- preprocess(good_reviews)
+bad_corpus &lt;- preprocess(bad_reviews)
+</code></pre>
+
+<p>To visualise this data, I made TDMs and word clouds. Since there were fewer negative reviews, the “bad review” wordcloud had fewer words so as not to give too much weight to words that are infrequently used.</p>
+
+<pre><code class="language-{r}">good_tdm &lt;- as.matrix(TermDocumentMatrix(good_corpus))
+good_tdm_rows &lt;- rowSums(good_tdm) %&gt;%
+  sort(decreasing = TRUE)
+bad_tdm &lt;- as.matrix(TermDocumentMatrix(bad_corpus))
+bad_tdm_rows &lt;- rowSums(bad_tdm) %&gt;%
+  sort(decreasing = TRUE)
+</code></pre>
+
+<h2 id="good-review-word-cloud">Good review word cloud</h2>
+<pre><code class="language-{r}">library(viridisLite)
+colour = cividis(n=3)
+
+good_word_freqs &lt;- data.frame(term = names(good_tdm_rows),
+                         num = good_tdm_rows)
+wordcloud(good_word_freqs$term, good_word_freqs$num, max.words = 100, colors = colour)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/good_wordcloud.png" alt="Good review word cloud" /></p>
+
+<p>The words that stand out here are <em>great</em>, <em>service</em>, <em>staff</em>, <em>atmosphere</em>, <em>night</em>, <em>good</em>, <em>drinks</em> and <em>friendly</em>. From this, I would say it looks like Suckerpunch creates a great atmosphere with crowd-pleasing drinks, and that the staff come across as friendy and attentive.</p>
+
+<h2 id="bad-review-word-cloud">Bad review word cloud</h2>
+<pre><code class="language-{r}">bad_word_freqs &lt;- data.frame(term = names(bad_tdm_rows),
+                         num = bad_tdm_rows)
+wordcloud(bad_word_freqs$term, bad_word_freqs$num, max.words = 50, colors = colour)
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/bad_wordcloud.png" alt="Bad review word cloud" /></p>
+
+<p>The words that stand out here are <em>table</em>, <em>upstairs</em>, <em>booked</em>, <em>drinks</em>, <em>manager</em>, and <em>rude</em>. The manager has come across rude to somebody at some point, and there seems to have been some negative experiences around booking tables (I am told people often don’t know they have to book and are disappointed when not allowed in or having to leave early). <em>Busy</em> and <em>service</em> imply to me that service could potentially be improved on busy nights.</p>
+
+<h2 id="how-does-the-ratio-of-good-and-bad-reviews-change-each-month">How does the ratio of good and bad reviews change each month?</h2>
+<p>There were some key changes to the bar, such as management changes and refurbishments
+that may have affected the ratings Suckerpunch during that month.</p>
+
+<pre><code class="language-{r}">reviews$Month_Yr &lt;- format(as.Date(reviews$Date), "%Y-%m")
+
+good_bad_split &lt;- reviews %&gt;%
+  mutate(Bad_review = Rating &lt;= 2,
+         Good_review = Rating &gt;= 4) %&gt;%
+  group_by(Month_Yr) %&gt;%
+  summarise(Good_review = round(mean(Good_review == 1), 2),
+            Bad_review = round(mean(Bad_review == 1), 2))
+
+good_bad_split %&gt;%
+    ggplot(aes(Month_Yr, group = 1)) +
+  geom_line(aes(y = Good_review, colour = "Good reviews (4+)")) +
+  geom_line(aes(y = Bad_review, colour = "Bad reviews (2 and below)")) +
+  labs(title = "Good vs bad reviews over time",
+     y = "Share of total reviews per month",
+     x = "Month") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face="bold", size=10),
+           axis.text.x  = element_text(angle=90, vjust=0.5)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_color_manual(values=c("#191919", "#f5e2a8")) +
+  theme(legend.title=element_blank())
+
+</code></pre>
+<p><img src="https://raw.githubusercontent.com/JazPeng/assets/master/r_in_bar/gd_vs_bd_revs.png" alt="Good vs bad reviews percentage" /></p>
+
+<p>The first month, November 2015, was not a good one - 25% of the reviews received were considered bad. Suckerpunch experienced some teething issues on the first night, such as a powercut and some cocktail ingredients running out.</p>
+
+<p>Luckily, things improved immediately after right up until August 2016, when 100% of reviews received were positive. However, a new business partner was brought in early 2016 until August 2017. We can see here the percentage of negative reviews received is highest around this time.</p>
+
+<p>In February 2018, the bar was refurbished to become bookings and seating only. This seems to improve the reviews given, apart from May and June this year where there was a slight dip.</p>
+
+<p>I am very happy with the insights pulled from the reviews data. In the next blog post, I’ll analyse cocktail sales data to see what can be discovered there.</p>
+
+
+      <footer class="site-footer">
+  <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.</span>
+</footer>
+
+
+    </section>
+
+  </body>
+</html>

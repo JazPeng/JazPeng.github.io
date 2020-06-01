@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+  
+  <head>
+  <meta charset="UTF-8">
+  <title>Jasmine Holdsworth</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#157878">
+  <link rel="stylesheet" href="/css/normalize.css">
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+  <link rel="stylesheet" href="/css/cayman.css">
+</head>
+
+  <body>
+    <section class="page-header">
+  <h1 class="project-name">Jasmine Holdsworth</h1>
+  <h2 class="project-tagline"><html>I am a Senior Data Analyst/Data Scientist based in London. I love R, Python, and anything data-related. I have previously worked at <b>Stack Overflow</b> and <b>DAZN</b>. I currently teach at <b>General Assembly</b> and work at <b>Expedia</b>.</html></h2>
+  <a href="/aboutme/" class="btn">About Me</a>
+  <a href="/" class="btn">Projects</a>
+  <a href="https://github.com/JazPeng" target="_blank" class="btn">GitHub</a>
+  <a href="https://twitter.com/StackJaz" target="_blank" class="btn">Twitter</a>
+  <a href="https://www.linkedin.com/in/jasmine-pengelly-a59b5552/" target="_blank" class="btn">LinkedIn</a>
+</section>
+
+
+    <section class="main-content">
+      
+      <h1 id="meghan-markle-and-the-media---creating-the-data-set"><center>Meghan Markle and the Media - Creating the data set</center></h1>
+<h2 id="r"><center>R</center></h2>
+
+<h2 id="outline">Outline</h2>
+<p>Since the first rumours of her romance with Prince Harry, Meghan Markle has been a feature within the pages of the tabloid press. The headlines have been rocky with controversy around the first photos of baby Archie, a lavish baby shower, private jet usage and family drama.</p>
+
+<p>Some claim the media attention is justified, while others believe Meghan has been unfairly targeted for refusing to conform to predefined Royal standards. Her uneasy relationship with the tabloids has culminated in a lawsuit against four main newspaper tabloids and a refusal to work with them.</p>
+
+<p>I have wanted to play with some sentiment analysis packages in R for a while, and this seemed a great opportunity. Below, I create a data set by web scraping three tabloid news websites and analysing the sentiment of the headlines.</p>
+
+<p>This section focuses on how I created the data set and selected the sentiment analysis tools I would be using.</p>
+
+<pre><code class="language-{r}">library(rvest)
+library(dplyr)
+library(stringr)
+library(qdap)
+library(DataCombine)
+library(readr)
+library(tidytext)
+library(tidyr)
+library(ggplot2)
+library(sentimentr)
+library(lubridate)
+</code></pre>
+
+<h2 id="creating-my-data-set">Creating my data set</h2>
+
+<h3 id="the-sun">The Sun</h3>
+
+<p>In order identify the correct content on from The Sun’s website, I utilised the search bar on the homepage. Searching for the term “Meghan Markle” generated the below URL formats.</p>
+
+<p><strong>First page - https://www.thesun.co.uk/who/meghan-markle/</strong></p>
+
+<p><strong>Second page - https://www.thesun.co.uk/who/meghan-markle/page/2/</strong></p>
+
+<p><strong>Last page - https://www.thesun.co.uk/who/meghan-markle/page/240/</strong></p>
+
+<p>The advantage of using the search bar is that the content had already been tagged as being about Meghan Markle by The Sun, meaning I didn’t miss out on headlines that were about the Duchess but did not contain her full name.</p>
+
+<p>My first task was to create a for loop that would create a character vector of URLs to scrape.</p>
+<pre><code class="language-{r}">sun_urls &lt;- c("https://www.thesun.co.uk/who/meghan-markle/")
+
+# For loop that creates numbers to append
+for (n in seq(2,240)) {
+  sun_urls &lt;- c(sun_urls, paste0("https://www.thesun.co.uk/who/meghan-markle/page/",n,"/"))
+}
+</code></pre>
+
+<p>Once I had my vector of headlines, I needed to identify the elements of HTML I wanted to extract. Once these were identified, another for loop was created to extract the headlines and put them into a data frame.</p>
+<pre><code class="language-{r}">sun_headlines &lt;- c()
+
+# For every page in the URLs created
+for (p in sun_urls) {
+  # Read the HTML
+  p &lt;- read_html(p)
+  
+  # Extract the headline, turn it into text, clean
+  hl &lt;- html_nodes(p, css = "a.text-anchor-wrap") %&gt;% 
+    html_text() %&gt;% 
+    str_replace_all("\n", " ") %&gt;% 
+    str_replace_all("\t", "") %&gt;% 
+    trimws()
+  
+  sun_headlines &lt;- c(sun_headlines, hl)
+}
+
+sun_headlines_df &lt;- data.frame(sun_headlines)
+</code></pre>
+<p>The Sun headlines have capitalised prefixes to their headlines with no punctuation which are usually puns. An example of this is <strong>BABY JOY Meghan’s ex-husband announces he and his wife are expecting their first child</strong>.</p>
+
+<p>I suspect this will interfere with sentiment analysis later on, so once I have the finalised data frames these will be removed. In all, 3,839 headlines were scraped from The Sun.</p>
+
+<p>I now needed the corresponding dates in order to do some time series analysis. While the previous for loop extracted the headlines from the pillar page, I would have to actually visit every story in order to get the date the headline was published. This was done with another for loop.</p>
+
+<pre><code class="language-{r}">sun_article_urls &lt;- c()
+
+# For every URL for the pillar pages about Meghan Markle
+for (u in sun_urls) {
+  # Read the HTML
+  u &lt;- read_html(u)
+  # Extract the URLs for the stories
+  sun_article_url &lt;- html_nodes(u, css = "a.text-anchor-wrap") %&gt;% 
+    html_attr("href")
+  
+  sun_article_urls &lt;- c(sun_article_urls, sun_article_url)
+}
+</code></pre>
+<p>This gives me the individual URLs for every story. Once I checked the length to make sure the number of headlines matched the number of URLs, I extracted the date from each one.</p>
+
+<pre><code class="language-{r}"># Create a function that takes one URL and extracts the date
+sun_get_dates &lt;- function(a) {
+  a &lt;- read_html(a)
+  # Extracts and cleans the date
+  date &lt;- a %&gt;% 
+    html_node(css = "span.article__datestamp") %&gt;% 
+    html_text() %&gt;% 
+    str_replace(",", "") %&gt;% 
+    trimws()
+  
+  data.frame(date)
+}
+
+# Apply the above function to every URL of the individual stories
+sun_all_dates &lt;- lapply(sun_article_urls, sun_get_dates)
+# Create a data frame of all of those dates
+sun_headlines_dates &lt;- plyr::ldply(sun_all_dates, data.frame)
+</code></pre>
+<p>Once I checked the length of the data frame with the dates was the same length as that of the headlines, I needed to combine the two data frames together. As I didn’t create a key to match the two, I join them with a column bind in the faith that the order of scraping has not been disrupted. A quick sense check using The Sun website clarifies this worked.</p>
+<pre><code class="language-{r}">sun_headlines_df &lt;- cbind("The Sun", sun_headlines_df, sun_headlines_dates)
+</code></pre>
+
+<p>This results in a data frame of headlines about Meghan Markle from The Sun newspaper, along with the corresponding dates. Now is the time to remove the capitalised puns from the beginning of the headline. I found the best way to do this was to split the string on the gap between the pun and the headline (a pattern of three spaces) and extract the second element.</p>
+<pre><code class="language-{r}">sun_headlines_df$headline &lt;- str_split_fixed(sun_headlines_df$headline, "   ", 2)[,2]
+</code></pre>
+
+<h3 id="daily-mail">Daily Mail</h3>
+<p>The search bar on the Daily Mail website was also used to identify the Meghan Markle-rekated content. The URLs for the pillar pages were less clear in this instance:</p>
+
+<p><strong>First page - https://www.dailymail.co.uk/home/search.html?offset=0&amp;size=50&amp;sel=site&amp;searchPhrase=%22meghan+markle%22&amp;sort=relevant&amp;type=article&amp;type=video&amp;type=permabox&amp;days=all</strong></p>
+
+<p><strong>Another page - https://www.dailymail.co.uk/home/search.html?offset=10000&amp;size=50&amp;sel=site&amp;searchPhrase=%22meghan+markle%22&amp;sort=relevant&amp;type=article&amp;type=video&amp;type=permabox&amp;days=all</strong></p>
+
+<p>There is a value within the URLs that goes up in increments of 50. I did not identify the maxmium value this could take, but I sorted the headlines by relevance using The Daily Mail’s own sorting function. I then scraped the 10,000 most relevant headlines.</p>
+
+<p>I first had to get a list of the URLs for the Meghan Markle pillar pages:</p>
+<pre><code class="language-{r}">dm_urls &lt;- c()
+
+# For every value between 0 and 10,000 in steps of 50
+for (n in seq(0,10000, 50)) {
+  # Paste the URL template with the value
+  dm_url &lt;- paste0("https://www.dailymail.co.uk/home/search.html?offset=",n,"&amp;size=50&amp;sel=site&amp;searchPhrase=%22meghan+markle%22&amp;sort=relevant&amp;type=article&amp;type=video&amp;type=permabox&amp;days=all")
+  dm_urls &lt;- c(dm_urls, dm_url)
+}
+</code></pre>
+
+<p>The next step was creating a function that extracted both the headline and the date from one URL, then apply it to all of my URLs.</p>
+<pre><code class="language-{r}">dm_get_one_page &lt;- function(url) {
+  
+  # Convert URL to HTML
+  url &lt;- read_html(url)
+  
+  # Extract every headline from each page
+  dm_hl &lt;- html_nodes(url, css = ".sch-res-title a") %&gt;% 
+  html_text()
+  
+  # Extract the corresponding dates for the headlines
+  dm_hl_date &lt;- html_nodes(url, css = ".sch-res-info ") %&gt;% 
+    html_text() %&gt;% 
+    str_replace_all("\n","") 
+  
+  # Clean the dates
+  dm_hl_date_clean &lt;- gsub("\\,.*","",trimws(gsub(".*[-]([^.]+)[,].*", "\\1", dm_hl_date)))
+  
+  # Put headline and date into a data frame
+  data.frame(dm_hl, dm_hl_date_clean)
+}
+
+# Apply the function to every pillar page URL 
+dm_all &lt;- lapply(dm_urls, dm_get_one_page)
+# Create a data frame of the headlines and dates
+dm_headlines_df &lt;- plyr::ldply(dm_all, data.frame)
+
+# Add "Daily Mail" as an identifying column to data frame
+dm_headlines_df["Title"] &lt;- "Daily Mail"
+</code></pre>
+
+<h2 id="the-express">The Express</h2>
+<p>The same process was used to extract headlines from The Express.</p>
+<pre><code class="language-{r}">exp_urls &lt;- c()
+
+# For loop that creates numbers to append to the URLs
+for (n in seq(10, 3000, 10)) {
+  exp_urls &lt;- c(exp_urls, paste0("https://www.express.co.uk/search?s=meghan&amp;order=relevant&amp;o=",n))
+}
+
+# Build a function to get one page
+exp_get_one_page &lt;- function(url) {
+  
+  # Read the HTML in the URL
+  url &lt;- read_html(url)
+  
+  # Extract headline text
+  exp_hl &lt;- html_nodes(url, css = "h4.post-title") %&gt;% 
+    html_text()
+  
+  # Extract corresponding dates
+  exp_date &lt;- html_nodes(u, css = "time") %&gt;% 
+    html_text() %&gt;% 
+    str_replace("Published: ", "")
+  
+  # Put both elements into a data frame
+  data.frame("The Express", exp_hl, exp_date)
+}
+
+# Apply the function to every URL
+exp_all &lt;- lapply(exp_urls, exp_get_one_page)
+# Put the contents of the previous lapply into one data frame
+exp_headlines_df &lt;- plyr::ldply(exp_all, data.frame)
+</code></pre>
+
+<h2 id="clean-and-collate-all-data">Clean and collate all data</h2>
+<p>Now I have one separate data frame for each publication, I need to put them into one master data frame in order to analyse sentiment. There needs to be a column added which describes the publication the headline originally came from.</p>
+<pre><code class="language-{r}"># The Express
+exp_headlines_df &lt;- exp_headlines_df %&gt;% 
+  select(publication = X.The.Express.,
+         headline = exp_hl,
+         date = exp_date)
+
+# The Daily Mail
+dm_headlines_df &lt;- dm_headlines_df %&gt;% 
+  select(publication = Title,
+         headline = dm_hl,
+         date = dm_hl_date_clean)
+
+# The Sun
+sun_headlines_df &lt;- sun_headlines_df %&gt;% 
+  select(publication = "\"The Sun\"",
+         headline = sun_headlines,
+         date)
+
+# Combine all into one master data frame
+master_df &lt;- rbind(rbind(exp_headlines_df, dm_headlines_df), sun_headlines_df)
+</code></pre>
+
+<p>The date formats were different for every publication, and these needed to be aligned so I could create a Date data type out of them.</p>
+
+<p>First, I extracted all the years and created a year column:</p>
+<pre><code class="language-{r}">master_df$year &lt;- str_sub(master_df$date, -4, -1)
+</code></pre>
+
+<p>Then I extracted all of the months:</p>
+<pre><code class="language-{r}">master_df$day &lt;- parse_number(str_sub(master_df$date, 1, -6))
+</code></pre>
+
+<p>Finally, I needed to change the months from text to numbers. I did this by identifying the pattern of the text of each month and replacing it with the number:</p>
+<pre><code class="language-{r}"># Chnage the date column from factor to character
+master_df$date &lt;- as.character(master_df$date)
+
+# Find the patterns to use as keys as to the month value to be replaced with
+master_df$month[grepl("Jan", master_df$date, ignore.case = TRUE)] &lt;- 1
+master_df$month[grepl("Feb", master_df$date, ignore.case = TRUE)] &lt;- 2
+master_df$month[grepl("Mar", master_df$date, ignore.case = TRUE)] &lt;- 3
+master_df$month[grepl("Apr", master_df$date, ignore.case = TRUE)] &lt;- 4
+master_df$month[grepl("May", master_df$date, ignore.case = TRUE)] &lt;- 5
+master_df$month[grepl("Jun", master_df$date, ignore.case = TRUE)] &lt;- 6
+master_df$month[grepl("Jul", master_df$date, ignore.case = TRUE)] &lt;- 7
+master_df$month[grepl("Aug", master_df$date, ignore.case = TRUE)] &lt;- 8
+master_df$month[grepl("Sep", master_df$date, ignore.case = TRUE)] &lt;- 9
+master_df$month[grepl("Oct", master_df$date, ignore.case = TRUE)] &lt;- 10
+master_df$month[grepl("Nov", master_df$date, ignore.case = TRUE)] &lt;- 11
+master_df$month[grepl("Dec", master_df$date, ignore.case = TRUE)] &lt;- 12
+
+# Check the only values I have are values between 1 and 12
+unique(master_df$month)
+</code></pre>
+
+<p>A new date column is then created from the extracted date elements:</p>
+<pre><code class="language-{r}">master_df &lt;- mutate(master_df, clean_date = paste0(day, "/", month, "/", year))
+
+master_df$clean_date &lt;- as.Date(master_df$clean_date, "%d/%m/%Y")
+</code></pre>
+
+<p>Some additional cleaning was performed before analysis could begin:</p>
+<pre><code class="language-{r}"># Find how many rows in the data frame have null dates
+nrow(filter(master_df, is.na(master_df$clean_date)))
+
+# Only 24 rows with null dates, all from The Sun. That's small enough for me to drop them
+master_df &lt;- filter(master_df, !is.na(master_df$clean_date))
+
+# Change the headline data type from factor to character
+master_df$headline &lt;- as.character(master_df$headline)
+
+# Create an ID for each headline
+master_df$id &lt;- seq.int(nrow(master_df))
+</code></pre>
+
+<h2 id="identifying-the-sentiment-analysis-packages-to-use">Identifying the sentiment analysis packages to use</h2>
+<p>Before I began analysing the sentiment, some final tidying up was required.</p>
+
+<p>First, I looked at any headlines that did not contain the word “Meghan” to see how relevant they were. There were just over 4,000 headlines that were loosely related, such as about the Royal family. Since they didn’t seem to be explicitly about the Duchess herself, I removed these and was left with 12,096 headlines.</p>
+
+<p>Some headlines were duplicated despite being released on different dates. These were filtered out, leaving me 10,980 headlines.</p>
+
+<p>Finally, I filtered out any headlines before 1st July 2016. This was the month that Harry and Meghan supposedly met, so it seemed a sensible enough point to begin my analysis.</p>
+<pre><code class="language-{r}"># Clean all data and save to a new data frame
+master_df_tidy &lt;- master_df %&gt;% 
+  select(publication, headline, date = clean_date) %&gt;% 
+  filter(grepl("Meghan", headline),
+         !duplicated (headline),
+         date &gt; "2016-07-01")
+
+# Reset the id since some headlines have been removed - important for sentimentr later
+master_df_tidy$id &lt;- seq.int(nrow(master_df_tidy))
+</code></pre>
+
+<p>My first resource for sentiment analysis was <a href="https://www.tidytextmining.com/">Text Mining with R</a> (Silge and Robinson 2016). This publication talked about three lexicons; the two I decided would work for my purpose were:</p>
+<ul>
+  <li>AFINN from Finn Årup Nielsen</li>
+  <li>bing from Bing Liu and collaborators</li>
+</ul>
+
+<h3 id="split-each-headline-into-words">Split each headline into words</h3>
+<p>Since these packages worked on individual words, I had to split each headline into individual words. I removed stopwords while doing this.</p>
+<pre><code class="language-{r}"># Create a new data frame to analyse word sentiment, stop words removed
+master_df_text &lt;- master_df_tidy %&gt;% 
+  unnest_tokens(word, headline) %&gt;% 
+  anti_join(stop_words)
+
+# Get rid of extranneous columns
+master_df_text &lt;- master_df_text %&gt;% 
+  select(id, publication, date, word)
+</code></pre>
+
+<h3 id="get-positive-and-negative-words-using-bing">Get positive and negative words using Bing</h3>
+<p>Once I had separated the headlines into words I performed an inner join to the Bing lexicon to get the associated sentiment for each word. While useful to see, this is not particularly accurate for getting the sentiment of a sentence as it doesn’t take into account how a group of words works together.</p>
+<pre><code class="language-{r}">pos_neg_df &lt;- master_df_text %&gt;% 
+  inner_join(get_sentiments("bing"))
+</code></pre>
+
+<h3 id="measure-the-sum-of-sentiment-using-afinn">Measure the sum of sentiment using AFINN</h3>
+<p>While the Bing lexicon gave me a binary classfication on the sentiment of words, the AFINN lexicon also gives the magnitude of said sentiment. I decided to sum the magnitude of word sentiments by headline to get an aggregated view.</p>
+
+<pre><code class="language-{r}">affin_sent &lt;- master_df_text %&gt;% 
+  # Join the to AFINN lexicon to get measure of sentiment
+  inner_join(get_sentiments("afinn")) %&gt;% 
+  # Group data frame by headline
+  group_by(id, publication, date) %&gt;% 
+  # Sum the sentiment - the higher the value, the more positive the sentiment
+  summarise(sentiment = sum(value)) %&gt;% 
+  # Join back to the original data frame to get the corresponding headline 
+  inner_join(master_df_tidy)
+</code></pre>
+<p>The magnitude of sentiment is more suitable for my purpose, however again the impact of each word in isolation is used. Ideally, I want to be able to analyse the sentiment on an entire sentence.</p>
+
+<h3 id="get-sentence-level-sentiment-with-sentimentr">Get sentence-level sentiment with sentimentr</h3>
+<p>The package <a href="https://cran.r-project.org/web/packages/sentimentr/sentimentr.pdf">sentimentr</a> (Rinker 2019) measures sentence-level sentiment by taking into account valence shifters such as negation, amplifiers and deamplifiers.</p>
+<pre><code class="language-{r}"># Create a data frame of headlines split into sentences, fget sentiment of each sentence
+sent_by_sent &lt;- master_df_tidy %&gt;% 
+  get_sentences() %&gt;% 
+  sentiment_by()
+
+# Bind the sentiment data frame with the original data frame to match the sentiment measure with the headline
+headline_sentiment &lt;- cbind(master_df_tidy, sent_by_sent) %&gt;% 
+  select(id, publication, headline, date, ave_sentiment) %&gt;% 
+  arrange(date)
+</code></pre>
+<p>A sense check of the sentiment of the headlines holds well. I believe this is a good methodology to use in my final analysis.</p>
+
+<h3 id="get-emotions-for-headlines-with-sentimentr">Get emotions for headlines with sentimentr</h3>
+<p>The package sentimentr also has a function that allows for the measure of specific emotions from sentences. As well as how positive or negative a sentence is, it would be useful for me to see the emotions generated by these headlines.</p>
+<pre><code class="language-{r}"># Create a new data frame for emotions
+emo_by_sent &lt;- master_df_tidy %&gt;% 
+  # Split headlines into sentences
+  get_sentences() %&gt;% 
+  # Get emotions for each sentence
+  emotion_by() %&gt;% 
+  # Filter out any emotions that don't appear, only keep the ones that do
+  filter(emotion_count &gt; 0) %&gt;% 
+  # Join back to the original data frame to match the emotions with the headline
+  mutate(id = element_id) %&gt;% 
+  left_join(master_df_tidy) %&gt;% 
+  select(id, publication, headline, date, emotion_type, emotion_count, ave_emotion) %&gt;% 
+  # Filter out any null headlines
+  filter(!is.na(headline))
+</code></pre>
+
+<h2 id="next-steps">Next steps</h2>
+<p>In my next post, I’ll be performing analysis on the text itself, finally displaying my results in a Tableau Public dashboard.</p>
+
+
+      <footer class="site-footer">
+  <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.</span>
+</footer>
+
+
+    </section>
+
+  </body>
+</html>
