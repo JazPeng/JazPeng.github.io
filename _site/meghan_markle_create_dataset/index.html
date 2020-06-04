@@ -320,7 +320,7 @@ master_df_tidy &lt;- master_df %&gt;%
 master_df_tidy$id &lt;- seq.int(nrow(master_df_tidy))
 </code></pre>
 
-<p>My first resource for sentiment analysis was <a href="https://www.tidytextmining.com/">Text Mining with R</a> (Silge and Robinson 2016). This publication talked about three lexicons; the two I decided would work for my purpose were:</p>
+<p>My first resource for sentiment analysis was Text Mining with R (Silge and Robinson <a href="https://www.tidytextmining.com/">2016</a>). This publication talked about three lexicons; the two I decided would work for my purpose were:</p>
 <ul>
   <li>AFINN from Finn Årup Nielsen</li>
   <li>bing from Bing Liu and collaborators</li>
@@ -360,7 +360,7 @@ master_df_text &lt;- master_df_text %&gt;%
 <p>The magnitude of sentiment is more suitable for my purpose, however again the impact of each word in isolation is used. Ideally, I want to be able to analyse the sentiment on an entire sentence.</p>
 
 <h3 id="get-sentence-level-sentiment-with-sentimentr">Get sentence-level sentiment with sentimentr</h3>
-<p>The package <a href="https://cran.r-project.org/web/packages/sentimentr/sentimentr.pdf">sentimentr</a> (Rinker 2019) measures sentence-level sentiment by taking into account valence shifters such as negation, amplifiers and deamplifiers.</p>
+<p>The package sentimentr (Rinker <a href="https://cran.r-project.org/web/packages/sentimentr/sentimentr.pdf">2019</a>) measures sentence-level sentiment by taking into account valence shifters such as negation, amplifiers and deamplifiers.</p>
 <pre><code class="language-{r}"># Create a data frame of headlines split into sentences, fget sentiment of each sentence
 sent_by_sent &lt;- master_df_tidy %&gt;% 
   get_sentences() %&gt;% 
@@ -392,7 +392,7 @@ emo_by_sent &lt;- master_df_tidy %&gt;%
 </code></pre>
 
 <h2 id="next-steps">Next steps</h2>
-<p>In my next post, I’ll be performing analysis on the text itself, finally displaying my results in a Tableau Public dashboard.</p>
+<p>In my <a href="http://localhost:4000/meghan_markle_headline_analysis/">next post</a>, I’ll be performing analysis on the text itself, finally displaying my results in a Tableau Public dashboard.</p>
 
 
       <footer class="site-footer">
